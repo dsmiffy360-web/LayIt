@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { onAuthChange, signInWithEmail, signInWithGoogle, signOut, getCurrentUser } from "./lib/auth";
 import { listJobs, createJob, deleteJob, toggleArchiveJob } from "./lib/jobsApi";
-import { getSubscriptionStatus, isContractorPlan, startCheckout, FREE_TIER_JOB_LIMIT } from "./lib/subscription";
+import { getSubscriptionStatus, isContractorPlan, startCheckout, openBillingPortal, FREE_TIER_JOB_LIMIT } from "./lib/subscription";
 import { JobWorkspace } from "./components/JobWorkspace";
 import { COLORS } from "./lib/colors";
 
@@ -79,6 +79,7 @@ function JobList({ user, onOpenJob }) {
   const [subscription, setSubscription] = useState(null);
   const [checkoutNotice, setCheckoutNotice] = useState("");
   const [upgrading, setUpgrading] = useState(false);
+  const [portalLoading, setPortalLoading] = useState(false);
 
   const refresh = async () => {
     try {
@@ -126,6 +127,16 @@ function JobList({ user, onOpenJob }) {
     }
   };
 
+  const handleManageBilling = async () => {
+    setPortalLoading(true);
+    try {
+      await openBillingPortal(user.id);
+    } catch (err) {
+      setError(err.message);
+      setPortalLoading(false);
+    }
+  };
+
   const rowButtonStyle = { minHeight: 32, borderRadius: 6, border: `1px solid ${COLORS.border}`, background: COLORS.panel, color: COLORS.sub, fontFamily: "JetBrains Mono", fontSize: 11, fontWeight: 600, cursor: "pointer", padding: "0 10px" };
 
   if (error) return (
@@ -159,7 +170,11 @@ function JobList({ user, onOpenJob }) {
         <span style={{ fontFamily: "JetBrains Mono", fontSize: 11, fontWeight: 600, color: onContractorPlan ? COLORS.reuse : COLORS.sub, textTransform: "uppercase", letterSpacing: "0.04em" }}>
           {onContractorPlan ? "Contractor plan" : `Free plan — ${activeJobCount}/${FREE_TIER_JOB_LIMIT} job`}
         </span>
-        {!onContractorPlan && (
+        {onContractorPlan ? (
+          <button onClick={handleManageBilling} disabled={portalLoading} style={{ ...rowButtonStyle, color: COLORS.accentText, borderColor: COLORS.accent }}>
+            {portalLoading ? "Redirecting…" : "Manage billing"}
+          </button>
+        ) : (
           <button onClick={handleUpgrade} disabled={upgrading} style={{ ...rowButtonStyle, color: COLORS.accentText, borderColor: COLORS.accent }}>
             {upgrading ? "Redirecting…" : "Upgrade"}
           </button>

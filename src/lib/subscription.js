@@ -36,3 +36,14 @@ export async function startCheckout(userId, userEmail) {
   if (error) throw new Error(error);
   window.location.href = url;
 }
+
+export async function openBillingPortal(userId) {
+  const res = await fetch("/api/create-portal-session", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ userId }),
+  });
+  const { url, error } = await res.json();
+  if (error) throw new Error(error);
+  window.location.href = url;
+}
