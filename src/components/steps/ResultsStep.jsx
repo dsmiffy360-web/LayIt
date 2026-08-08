@@ -31,6 +31,66 @@ import { RollGoodsResults } from "../RollGoodsResults";
 // it's a materialType concern, not a pattern one.
 const PORTED_ROW_METHODS = new Set(ROW_BASED_METHODS);
 
+// The 9 "exact" patterns tile a plain rectangle with zero cut pieces — none
+// of them have boundary-clipping logic, so an alcove (which makes the room
+// non-rectangular) isn't something any of their geometries can tile through.
+// Rather than teach 9 different tilings to cut pieces at an arbitrary notch,
+// each alcove is filled on its own as a tiny straight-row sub-room (reusing
+// the same verified engine the Straight pattern uses), tallied as its own
+// separate cut list — the way an installer actually handles a small nook
+// off a herringbone or hexagon floor: lay the main pattern in the main
+// room, cut boards to fill the nook separately.
+function computeAlcoveFillSections(sectionNums, Pl, Pw, unit, gap) {
+  if (!(Pl > 0) || !(Pw > 0)) return [];
+  const sections = [];
+  sectionNums.forEach((s) => {
+    (s.alcoves || []).forEach((a) => {
+      if (a.span <= 0 || a.depth <= 0) return;
+      const fill = computeSectionLayout({ L: a.depth, W: a.span, Pl, Pw, minStagger: 20, method: "straight", seed: 1, unit, gap });
+      sections.push({ id: `${s.id}-alcove-${a.id}`, label: `${s.label} — alcove`, ...fill });
+    });
+  });
+  return sections;
+}
+
+function AlcoveFillBlock({ alcoveSections, unit, pieceLabel, checkedPieces, onBump, onReset }) {
+  if (alcoveSections.length === 0) return null;
+  const { cutRows, fullCount, isMixedWidth } = computeCutTally(alcoveSections, unit);
+  const totalPlanks = alcoveSections.reduce((sum, s) => sum + s.totalPlanks, 0);
+  return (
+    <section style={{ background: COLORS.panel, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 18, marginBottom: 18 }}>
+      <div style={{ fontFamily: "Space Grotesk", fontWeight: 600, fontSize: 15, marginBottom: 4 }}>Alcove fill</div>
+      <p style={{ fontSize: 12, color: COLORS.sub, marginTop: 0, marginBottom: 10 }}>
+        The pattern above doesn't tile through an alcove — each one is filled separately with straight-cut {pieceLabel.toLowerCase()}s, {totalPlanks} total.
+      </p>
+      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        {cutRows.map(([len, count, width]) => {
+          const key = `alcove-${isMixedWidth ? `${len}-${width}` : `${len}`}`;
+          const done = Math.min(checkedPieces[key] || 0, count);
+          const complete = done >= count;
+          return (
+            <div key={key} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", borderRadius: 6, background: complete ? "#EAF3EE" : "#FCEEEA", border: `1px solid ${complete ? COLORS.reuse : COLORS.waste}` }}>
+              <button onClick={() => onBump(key, count)} disabled={complete} style={{ flex: 1, display: "flex", justifyContent: "space-between", background: "none", border: "none", cursor: complete ? "default" : "pointer", fontFamily: "JetBrains Mono" }}>
+                <span style={{ fontSize: 13, textDecoration: complete ? "line-through" : "none" }}>
+                  {complete ? "✓ " : ""}Cut to {len}{unit}{isMixedWidth ? ` (${width}${unit} wide)` : ""}
+                </span>
+                <span style={{ fontSize: 13, fontWeight: 600 }}>{done}/{count}</span>
+              </button>
+              {done > 0 && <button onClick={() => onReset(key)} style={{ border: "none", background: "none", color: COLORS.sub, fontFamily: "JetBrains Mono" }}>↺</button>}
+            </div>
+          );
+        })}
+        {fullCount > 0 && (
+          <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 10px", borderRadius: 6, background: "#F5EEE3" }}>
+            <span style={{ fontFamily: "JetBrains Mono", fontSize: 13 }}>Full {pieceLabel.toLowerCase()}s, no cutting</span>
+            <span style={{ fontFamily: "JetBrains Mono", fontSize: 13, fontWeight: 600 }}>× {fullCount}</span>
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
 export function ResultsStep({ job, updateJob, jobName }) {
   const { sections, unit, layoutMethod, materialType, checkedPieces, hbCentered } = job;
   const activeLength = materialType === "tile" ? job.tileLength : job.plankLength;
@@ -144,9 +204,11 @@ export function ResultsStep({ job, updateJob, jobName }) {
         </p>
       );
     }
+    const hbAlcoveSections = computeAlcoveFillSections(sectionNums, nums.Pl, nums.Pw, unit, effectiveGap);
     return (
       <>
         <HerringboneExactCutList sectionResults={hbResults} unit={unit} pieceLabel={pieceLabel} checkedPieces={checkedPieces} onBump={bump} onReset={reset} />
+        <AlcoveFillBlock alcoveSections={hbAlcoveSections} unit={unit} pieceLabel={pieceLabel} checkedPieces={checkedPieces} onBump={bump} onReset={reset} />
         {hbResults.map((sec, i) => (
           <div key={sec.id} style={{ marginBottom: 20 }}>
             <div style={{ fontFamily: "Space Grotesk", fontWeight: 600, fontSize: 16, marginBottom: 8 }}>
@@ -187,9 +249,11 @@ export function ResultsStep({ job, updateJob, jobName }) {
         </p>
       );
     }
+    const chevAlcoveSections = computeAlcoveFillSections(sectionNums, nums.Pl, nums.Pw, unit, effectiveGap);
     return (
       <>
         <ChevronExactCutList sectionResults={chevResults} unit={unit} pieceLabel={pieceLabel} checkedPieces={checkedPieces} onBump={bump} onReset={reset} />
+        <AlcoveFillBlock alcoveSections={chevAlcoveSections} unit={unit} pieceLabel={pieceLabel} checkedPieces={checkedPieces} onBump={bump} onReset={reset} />
         {chevResults.map((sec, i) => (
           <div key={sec.id} style={{ marginBottom: 20 }}>
             <div style={{ fontFamily: "Space Grotesk", fontWeight: 600, fontSize: 16, marginBottom: 8 }}>
@@ -226,9 +290,11 @@ export function ResultsStep({ job, updateJob, jobName }) {
         </p>
       );
     }
+    const bwAlcoveSections = computeAlcoveFillSections(sectionNums, nums.Pl, nums.Pw, unit, effectiveGap);
     return (
       <>
         <BasketWeaveCutList sectionResults={bwResults} unit={unit} pieceLabel={pieceLabel} checkedPieces={checkedPieces} onBump={bump} onReset={reset} />
+        <AlcoveFillBlock alcoveSections={bwAlcoveSections} unit={unit} pieceLabel={pieceLabel} checkedPieces={checkedPieces} onBump={bump} onReset={reset} />
         {bwResults.map((sec, i) => (
           <div key={sec.id} style={{ marginBottom: 20 }}>
             <div style={{ fontFamily: "Space Grotesk", fontWeight: 600, fontSize: 16, marginBottom: 8 }}>
@@ -271,9 +337,11 @@ export function ResultsStep({ job, updateJob, jobName }) {
         </p>
       );
     }
+    const diagAlcoveSections = computeAlcoveFillSections(sectionNums, nums.Pl, nums.Pw, unit, effectiveGap);
     return (
       <>
         <DiagonalExactCutList sectionResults={diagResults} unit={unit} pieceLabel={pieceLabel} checkedPieces={checkedPieces} onBump={bump} onReset={reset} />
+        <AlcoveFillBlock alcoveSections={diagAlcoveSections} unit={unit} pieceLabel={pieceLabel} checkedPieces={checkedPieces} onBump={bump} onReset={reset} />
         {diagResults.map((sec, i) => (
           <div key={sec.id} style={{ marginBottom: 20 }}>
             <div style={{ fontFamily: "Space Grotesk", fontWeight: 600, fontSize: 16, marginBottom: 8 }}>
@@ -314,9 +382,11 @@ export function ResultsStep({ job, updateJob, jobName }) {
         </p>
       );
     }
+    const pwAlcoveSections = computeAlcoveFillSections(sectionNums, nums.Pl, nums.Pw, unit, effectiveGap);
     return (
       <>
         <PinwheelCutList sectionResults={pwResults} unit={unit} pieceLabel={pieceLabel} checkedPieces={checkedPieces} onBump={bump} onReset={reset} />
+        <AlcoveFillBlock alcoveSections={pwAlcoveSections} unit={unit} pieceLabel={pieceLabel} checkedPieces={checkedPieces} onBump={bump} onReset={reset} />
         {pwResults.map((sec, i) => (
           <div key={sec.id} style={{ marginBottom: 20 }}>
             <div style={{ fontFamily: "Space Grotesk", fontWeight: 600, fontSize: 16, marginBottom: 8 }}>
@@ -357,9 +427,11 @@ export function ResultsStep({ job, updateJob, jobName }) {
         </p>
       );
     }
+    const dhbAlcoveSections = computeAlcoveFillSections(sectionNums, nums.Pl, nums.Pw, unit, effectiveGap);
     return (
       <>
         <DoubleHerringboneCutList sectionResults={dhbResults} unit={unit} pieceLabel={pieceLabel} checkedPieces={checkedPieces} onBump={bump} onReset={reset} />
+        <AlcoveFillBlock alcoveSections={dhbAlcoveSections} unit={unit} pieceLabel={pieceLabel} checkedPieces={checkedPieces} onBump={bump} onReset={reset} />
         {dhbResults.map((sec, i) => (
           <div key={sec.id} style={{ marginBottom: 20 }}>
             <div style={{ fontFamily: "Space Grotesk", fontWeight: 600, fontSize: 16, marginBottom: 8 }}>
@@ -399,9 +471,11 @@ export function ResultsStep({ job, updateJob, jobName }) {
         </p>
       );
     }
+    const hexAlcoveSections = computeAlcoveFillSections(sectionNums, nums.Pl, nums.Pw, unit, effectiveGap);
     return (
       <>
         <HexagonSummary sectionResults={hexResults} pieceLabel={pieceLabel} />
+        <AlcoveFillBlock alcoveSections={hexAlcoveSections} unit={unit} pieceLabel={pieceLabel} checkedPieces={checkedPieces} onBump={bump} onReset={reset} />
         {hexResults.map((sec, i) => (
           <div key={sec.id} style={{ marginBottom: 20 }}>
             <div style={{ fontFamily: "Space Grotesk", fontWeight: 600, fontSize: 16, marginBottom: 8 }}>
@@ -440,9 +514,11 @@ export function ResultsStep({ job, updateJob, jobName }) {
         </p>
       );
     }
+    const versAlcoveSections = computeAlcoveFillSections(sectionNums, nums.Pl, nums.Pw, unit, effectiveGap);
     return (
       <>
         <VersaillesCutList sectionResults={versResults} unit={unit} pieceLabel={pieceLabel} checkedPieces={checkedPieces} onBump={bump} onReset={reset} />
+        <AlcoveFillBlock alcoveSections={versAlcoveSections} unit={unit} pieceLabel={pieceLabel} checkedPieces={checkedPieces} onBump={bump} onReset={reset} />
         {versResults.map((sec, i) => (
           <div key={sec.id} style={{ marginBottom: 20 }}>
             <div style={{ fontFamily: "Space Grotesk", fontWeight: 600, fontSize: 16, marginBottom: 8 }}>
