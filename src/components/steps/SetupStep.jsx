@@ -6,6 +6,55 @@ import { ConfirmButton } from "../shared/ConfirmButton";
 let sectionIdCounter = 1000; // seeded high — real IDs come from existing job data
 let alcoveIdCounter = 1000;
 
+// A quick shape-check for the section being edited — not a scaled technical
+// drawing like the pattern/results diagrams, just "does this look like my
+// room." Each section is its own independent rectangle in this app's data
+// model (no stored adjacency between sections), so this only ever draws
+// one rectangle at a time, never a combined L-shape.
+function RoomPreview({ length, width, alcoves, unit }) {
+  const L = parseFloat(length), W = parseFloat(width);
+  if (isNaN(L) || isNaN(W) || L <= 0 || W <= 0) return null;
+
+  const validAlcoves = (alcoves || [])
+    .map((a) => ({ offset: parseFloat(a.offset) || 0, span: parseFloat(a.span) || 0, depth: parseFloat(a.depth) || 0, wall: a.wall === "near" ? "near" : "far" }))
+    .filter((a) => a.span > 0 && a.depth > 0);
+  const nearDepth = Math.max(0, ...validAlcoves.filter((a) => a.wall === "near").map((a) => a.depth));
+  const farDepth = Math.max(0, ...validAlcoves.filter((a) => a.wall !== "near").map((a) => a.depth));
+
+  const padX = 20, padY = 20;
+  const virtualW = 240;
+  const scale = virtualW / L;
+  const drawW = L * scale, drawH = W * scale;
+  const extraL = nearDepth * scale, extraR = farDepth * scale;
+  const svgW = drawW + extraL + extraR + padX * 2;
+  const svgH = drawH + padY * 2;
+  const px = (x) => padX + extraL + x * scale;
+  const py = (y) => padY + y * scale;
+
+  return (
+    <div style={{ background: "#F0EEE7", border: `1px solid ${COLORS.border}`, borderRadius: 8, padding: "12px 10px" }}>
+      <svg viewBox={`0 0 ${svgW} ${svgH}`} width="100%" height="auto" style={{ display: "block", maxHeight: 140 }} preserveAspectRatio="xMidYMid meet" role="img" aria-label={`Room shape, ${length} by ${width} ${unit}`}>
+        <rect x={px(0)} y={py(0)} width={drawW} height={drawH} fill="#FBFAF7" stroke={COLORS.wood1} strokeWidth="1.5" />
+        {validAlcoves.map((a, i) => (
+          <rect
+            key={i}
+            x={px(a.wall === "near" ? -a.depth : L)}
+            y={py(a.offset)}
+            width={a.depth * scale}
+            height={a.span * scale}
+            fill="#FBFAF7"
+            stroke={COLORS.accent}
+            strokeWidth="1.5"
+            strokeDasharray="3,2"
+          />
+        ))}
+        <text x={px(L / 2)} y={py(0) - 6} fill={COLORS.sub} fontSize="10" fontFamily="JetBrains Mono" textAnchor="middle">{length}{unit}</text>
+        <text x={px(0) - 8} y={py(W / 2)} fill={COLORS.sub} fontSize="10" fontFamily="JetBrains Mono" textAnchor="middle" transform={`rotate(-90 ${px(0) - 8} ${py(W / 2)})`}>{width}{unit}</text>
+      </svg>
+    </div>
+  );
+}
+
 export function SetupStep({ job, updateJob }) {
   const { unit, sections, projectType } = job;
 
@@ -127,6 +176,7 @@ export function SetupStep({ job, updateJob }) {
                 <Field label={`Length (${unit})`} value={s.length} onChange={(v) => updateSection(s.id, { length: v })} />
                 <Field label={`Width (${unit})`} value={s.width} onChange={(v) => updateSection(s.id, { width: v })} />
               </div>
+              <RoomPreview length={s.length} width={s.width} alcoves={s.alcoves} unit={unit} />
               <Field label={`Fixed obstacle (${unit}², e.g. an island — 0 if none)`} value={s.obstacle} onChange={(v) => updateSection(s.id, { obstacle: v })} step="1" />
 
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
