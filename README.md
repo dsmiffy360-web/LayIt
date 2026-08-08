@@ -1,4 +1,4 @@
-# FloorCraft
+# LayIt
 
 Real-app port of the flooring/ceiling cut planner. This README is written
 for whoever picks this up next — possibly a future me, possibly a

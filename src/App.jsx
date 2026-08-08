@@ -35,7 +35,7 @@ function SignInScreen() {
         fontFamily: "Space Grotesk", fontWeight: 700, fontSize: 34, textAlign: "center", margin: "0 0 28px",
         color: COLORS.accentText,
       }}>
-        FloorCraft
+        LayIt
       </h1>
       <section style={{ background: COLORS.panel, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: 24 }}>
         <div style={{ fontFamily: "JetBrains Mono", fontSize: 11, fontWeight: 600, color: COLORS.sub, textTransform: "uppercase", letterSpacing: "0.04em", margin: "0 0 14px" }}>Sign in</div>
@@ -155,7 +155,7 @@ function JobList({ user, onOpenJob }) {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
         <div>
           <h1 style={{ fontFamily: "Space Grotesk", fontWeight: 700, fontSize: 34, color: COLORS.accentText, margin: 0 }}>
-            FloorCraft
+            LayIt
           </h1>
           {onContractorPlan && (
             <div style={{ fontFamily: "Space Grotesk", fontWeight: 700, fontSize: 15, color: COLORS.accentText, marginTop: -4 }}>

@@ -1,4 +1,4 @@
-// layoutEngine.js — the verified calculation core of FloorCraft.
+// layoutEngine.js — the verified calculation core of LayIt.
 // Pure functions only: no DOM, no React, no browser APIs. Every algorithm
 // here was numerically verified (exact area conservation, zero overlap)
 // against hand-built test cases before being trusted — see the project
