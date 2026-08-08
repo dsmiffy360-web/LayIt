@@ -1,4 +1,4 @@
--- Measure Twice — Supabase schema
+-- FloorCraft — Supabase schema
 -- Run this in the Supabase SQL editor (Project → SQL Editor → New query)
 -- after creating a project. Mirrors the job data model already proven out
 -- in the artifact prototype, so migrating existing local jobs is a

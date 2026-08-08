@@ -8,7 +8,7 @@ export function RollGoodsResults({ sectionResults, rollTotals, unit, pieceLabel,
 
   const buildRollText = () => {
     const lines = [];
-    lines.push(`Measure Twice — Roll goods plan${materialName ? ` (${materialName})` : ""}`);
+    lines.push(`FloorCraft — Roll goods plan${materialName ? ` (${materialName})` : ""}`);
     lines.push(`Total roll length needed: ${rollTotals.totalLength.toFixed(1)}${unit} · with ${bufNum}% buffer: ${rollTotals.bufferedLength.toFixed(1)}${unit}`);
     lines.push(`Area to order (with buffer): ${rollTotals.bufferedAreaStd.toFixed(1)} ${rollTotals.areaUnitLabel}`);
     if (rollEstimatedCost !== null) lines.push(`Estimated cost: ${rollEstimatedCost.toFixed(2)}`);

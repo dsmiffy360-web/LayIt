@@ -2,7 +2,7 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
 
-// Measure Twice — PWA build config. installable, offline-capable for
+// FloorCraft — PWA build config. installable, offline-capable for
 // viewing already-loaded jobs. Real network calls (Supabase, Stripe) still
 // need connectivity; the service worker only caches app shell + assets.
 export default defineConfig({
@@ -12,8 +12,8 @@ export default defineConfig({
       registerType: "autoUpdate",
       includeAssets: ["favicon.svg", "apple-touch-icon.png"],
       manifest: {
-        name: "Measure Twice",
-        short_name: "Measure Twice",
+        name: "FloorCraft",
+        short_name: "FloorCraft",
         description: "Flooring and ceiling cut planner for contractors",
         theme_color: "#C68A4E",
         background_color: "#EEEDE8",
