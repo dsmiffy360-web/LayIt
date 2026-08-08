@@ -26,6 +26,14 @@ async function buffer(readable) {
   return Buffer.concat(chunks);
 }
 
+// Stripe moved `current_period_end` off the top-level Subscription object
+// and onto each subscription item (to support multi-item subscriptions) —
+// fall back to the old top-level field in case an older API version ever
+// sends it there instead.
+function getPeriodEnd(subscription) {
+  return subscription.items?.data?.[0]?.current_period_end ?? subscription.current_period_end;
+}
+
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).end();
 
@@ -45,28 +53,30 @@ export default async function handler(req, res) {
       const session = event.data.object;
       const userId = session.client_reference_id; // set when creating the checkout session
       const subscription = await stripe.subscriptions.retrieve(session.subscription);
-      await supabaseAdmin.from("subscriptions").upsert({
+      const { error } = await supabaseAdmin.from("subscriptions").upsert({
         user_id: userId,
         stripe_customer_id: session.customer,
         stripe_subscription_id: subscription.id,
         status: "active",
         plan: "contractor",
-        current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
+        current_period_end: new Date(getPeriodEnd(subscription) * 1000).toISOString(),
       });
+      if (error) console.error("Failed to write subscription after checkout:", error.message);
       break;
     }
     case "customer.subscription.updated":
     case "customer.subscription.deleted": {
       const subscription = event.data.object;
       const status = subscription.status === "active" ? "active" : subscription.status === "past_due" ? "past_due" : "canceled";
-      await supabaseAdmin
+      const { error } = await supabaseAdmin
         .from("subscriptions")
         .update({
           status,
           plan: status === "active" ? "contractor" : "free",
-          current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
+          current_period_end: new Date(getPeriodEnd(subscription) * 1000).toISOString(),
         })
         .eq("stripe_subscription_id", subscription.id);
+      if (error) console.error("Failed to update subscription status:", error.message);
       break;
     }
     default:
