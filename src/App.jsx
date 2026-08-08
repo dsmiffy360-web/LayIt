@@ -142,9 +142,16 @@ function JobList({ user, onOpenJob }) {
   return (
     <div style={{ maxWidth: 480, margin: "40px auto", padding: "0 16px 40px" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-        <h1 style={{ fontFamily: "Space Grotesk", fontWeight: 700, fontSize: 34, color: COLORS.accentText, margin: 0 }}>
-          Measure Twice
-        </h1>
+        <div>
+          <h1 style={{ fontFamily: "Space Grotesk", fontWeight: 700, fontSize: 34, color: COLORS.accentText, margin: 0 }}>
+            Measure Twice
+          </h1>
+          {onContractorPlan && (
+            <div style={{ fontFamily: "Space Grotesk", fontWeight: 700, fontSize: 15, color: COLORS.accentText, marginTop: -4 }}>
+              Contractor
+            </div>
+          )}
+        </div>
         <button onClick={signOut} style={secondaryButtonStyle}>Sign out</button>
       </div>
 
