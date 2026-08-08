@@ -21,6 +21,13 @@ export default async function handler(req, res) {
       line_items: [{ price: process.env.STRIPE_CONTRACTOR_PRICE_ID, quantity: 1 }],
       success_url: `${process.env.PUBLIC_APP_URL}/account?checkout=success`,
       cancel_url: `${process.env.PUBLIC_APP_URL}/account?checkout=canceled`,
+      // 7-day free trial — card is collected now but not charged until the
+      // trial ends. The webhook already marks the account active/contractor
+      // as soon as checkout completes (see stripe-webhook.js), so trial
+      // users get full access immediately; if the trial-end charge fails or
+      // they cancel, the existing customer.subscription.updated/deleted
+      // handling already downgrades them correctly with no changes needed.
+      subscription_data: { trial_period_days: 7 },
       // Stripe's own hosted portal (billing.stripe.com) handles upgrade/
       // downgrade/cancel from here on — no custom UI needed for that.
       allow_promotion_codes: true,

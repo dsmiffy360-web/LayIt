@@ -95,7 +95,7 @@ function JobList({ user, onOpenJob }) {
 
     const checkout = new URLSearchParams(window.location.search).get("checkout");
     if (checkout === "success") {
-      setCheckoutNotice("You're upgraded to the Contractor plan!");
+      setCheckoutNotice("Your 7-day free trial has started — you're on the Contractor plan.");
       getSubscriptionStatus(user.id).then(setSubscription).catch(() => {});
     } else if (checkout === "canceled") {
       setCheckoutNotice("Checkout was canceled — you're still on the free plan.");
@@ -176,7 +176,7 @@ function JobList({ user, onOpenJob }) {
           </button>
         ) : (
           <button onClick={handleUpgrade} disabled={upgrading} style={{ ...rowButtonStyle, color: COLORS.accentText, borderColor: COLORS.accent }}>
-            {upgrading ? "Redirecting…" : "Upgrade"}
+            {upgrading ? "Redirecting…" : "Start free trial"}
           </button>
         )}
       </div>
@@ -190,7 +190,7 @@ function JobList({ user, onOpenJob }) {
       </button>
       {atFreeLimit && (
         <p style={{ fontFamily: "Inter", fontSize: 12, color: COLORS.sub, marginTop: 6 }}>
-          Free plan is limited to {FREE_TIER_JOB_LIMIT} active job — archive one or upgrade to add more.
+          Free plan is limited to {FREE_TIER_JOB_LIMIT} active job — archive one, or start a free 7-day trial to add more.
         </p>
       )}
 
