@@ -322,7 +322,7 @@ export function ResultsStep({ job, updateJob, jobName }) {
     }
     const diagResults = sectionNums.map((s) => {
       const pieces = layoutMethod === "diagonalplank"
-        ? computeDiagonalPlankExact(s.L, s.W, nums.Pl, nums.Pw)
+        ? computeDiagonalPlankExact(s.L, s.W, nums.Pl, nums.Pw, s.alcoves)
         : computeDiagonalHerringboneExact(s.L, s.W, nums.Pl, nums.Pw);
       if (!pieces) return { ...s, diagonalPieces: null };
       const totalPlanks = pieces.length;
@@ -337,7 +337,12 @@ export function ResultsStep({ job, updateJob, jobName }) {
         </p>
       );
     }
-    const diagAlcoveSections = computeAlcoveFillSections(sectionNums, nums.Pl, nums.Pw, unit, effectiveGap);
+    // Diagonal plank now tiles straight through an alcove itself (see
+    // computeDiagonalPlankExact) so it doesn't need the generic separate-fill
+    // block — diagonal herringbone still does, until it gets the same treatment.
+    const diagAlcoveSections = layoutMethod === "diagonalherringbone"
+      ? computeAlcoveFillSections(sectionNums, nums.Pl, nums.Pw, unit, effectiveGap)
+      : [];
     return (
       <>
         <DiagonalExactCutList sectionResults={diagResults} unit={unit} pieceLabel={pieceLabel} checkedPieces={checkedPieces} onBump={bump} onReset={reset} />

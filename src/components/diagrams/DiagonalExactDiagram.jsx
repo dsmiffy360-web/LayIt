@@ -9,10 +9,22 @@ export function DiagonalExactDiagram({ result, L, W, unit, pieceLabel = "Plank",
   const scale = virtualW / L;
   const drawW = L * scale;
   const drawH = W * scale;
-  const svgW = drawW + padL + padR;
-  const svgH = drawH + padT + padB + 24;
   const pieces = result.diagonalPieces || [];
   const isPlank = result.diagonalKind === "diagonalplank";
+  // Alcove pieces (diagonal plank only, see computeDiagonalPlankExact) sit
+  // outside the room's 0..L range — extend the canvas so they're visible
+  // instead of clipped off, and shift everything right by nearDepth so a
+  // near-wall alcove's negative x still lands on-canvas. Diagonal herringbone
+  // doesn't generate these pieces yet (still uses the separate alcove-fill
+  // block elsewhere on the page), so it gets none of this canvas expansion.
+  const validAlcoves = isPlank ? (result.alcoves || []).filter((a) => a.span > 0 && a.depth > 0) : [];
+  const nearDepth = Math.max(0, ...validAlcoves.filter((a) => a.wall === "near").map((a) => a.depth));
+  const farDepth = Math.max(0, ...validAlcoves.filter((a) => a.wall !== "near").map((a) => a.depth));
+  const extraL = nearDepth * scale, extraR = farDepth * scale;
+  const svgW = drawW + extraL + extraR + padL + padR;
+  const svgH = drawH + padT + padB + 24;
+  const px = (x) => padL + extraL + x * scale;
+  const py = (y) => padT + y * scale;
 
   return (
     <section style={{ background: COLORS.blueprint, borderRadius: 10, padding: "14px 12px 18px", marginBottom: 12 }}>
@@ -21,20 +33,21 @@ export function DiagonalExactDiagram({ result, L, W, unit, pieceLabel = "Plank",
       </div>
       <svg ref={svgRef} viewBox={`0 0 ${svgW} ${svgH}`} width="100%" height="auto" style={{ display: "block" }} preserveAspectRatio="xMidYMid meet" role="img" aria-labelledby="diag-diagram-title">
         <title id="diag-diagram-title">{isPlank ? "Diagonal plank" : "Diagonal herringbone"} layout for a {L}{unit} by {W}{unit} room, {result.totalPlanks} planks</title>
-        <line x1={padL} y1={14} x2={padL + drawW} y2={14} stroke={COLORS.chalkDim} strokeWidth="1" />
-        <text x={padL + drawW / 2} y={10} fill={COLORS.chalk} fontSize="11" fontFamily="JetBrains Mono" textAnchor="middle">{L}{unit}</text>
-        <text x={14} y={padT + drawH / 2} fill={COLORS.chalk} fontSize="11" fontFamily="JetBrains Mono" textAnchor="middle" transform={`rotate(-90 14 ${padT + drawH / 2})`}>{W}{unit}</text>
+        <line x1={px(0)} y1={14} x2={px(L)} y2={14} stroke={COLORS.chalkDim} strokeWidth="1" />
+        <text x={px(L / 2)} y={10} fill={COLORS.chalk} fontSize="11" fontFamily="JetBrains Mono" textAnchor="middle">{L}{unit}</text>
+        <text x={14} y={py(W / 2)} fill={COLORS.chalk} fontSize="11" fontFamily="JetBrains Mono" textAnchor="middle" transform={`rotate(-90 14 ${py(W / 2)})`}>{W}{unit}</text>
         {pieces.map((p, i) => (
           <polygon
             key={i}
-            points={p.poly.map(([x, y]) => `${padL + x * scale},${padT + y * scale}`).join(" ")}
+            points={p.poly.map(([x, y]) => `${px(x)},${py(y)}`).join(" ")}
             fill={p.full ? (i % 2 === 0 ? COLORS.wood1 : COLORS.wood2) : COLORS.waste}
             stroke={COLORS.blueprint}
             strokeWidth="0.5"
+            opacity={p.inAlcove ? 0.85 : 1}
           />
         ))}
-        <rect x={padL} y={padT} width={drawW} height={drawH} fill="none" stroke={COLORS.chalk} strokeWidth="1.5" />
-        <g transform={`translate(${padL}, ${padT + drawH + 14})`}>
+        <rect x={px(0)} y={py(0)} width={drawW} height={drawH} fill="none" stroke={COLORS.chalk} strokeWidth="1.5" />
+        <g transform={`translate(${px(0)}, ${py(0) + drawH + 14})`}>
           {[[COLORS.wood1, "Full plank"], [COLORS.waste, "Cut at perimeter"]].map(([c, label], i) => (
             <g key={label} transform={`translate(${i * 150}, 0)`}>
               <rect width="10" height="10" fill={c} rx="2" />
@@ -43,6 +56,11 @@ export function DiagonalExactDiagram({ result, L, W, unit, pieceLabel = "Plank",
           ))}
         </g>
       </svg>
+      {validAlcoves.length > 0 && (
+        <p style={{ fontSize: 11, color: COLORS.chalk, marginTop: 8, marginBottom: 0, fontFamily: "Inter" }}>
+          Pieces shown outside the {L}{unit} × {W}{unit} outline continue the same diagonal tiling straight into an alcove.
+        </p>
+      )}
       <button
         onClick={() => exportSvgAsPng(svgRef.current, `${sectionLabel.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}-layout.png`, COLORS.blueprint)}
         style={{ marginTop: 10, width: "100%", minHeight: 38, fontFamily: "JetBrains Mono", fontSize: 12, fontWeight: 600, borderRadius: 7, border: `1px solid ${COLORS.chalkDim}`, background: "transparent", color: COLORS.chalk, cursor: "pointer" }}

@@ -294,15 +294,36 @@ function extractDiagonalCutSpec(clippedPoly, x0, y0, kind, dim) {
   return { bottom, top };
 }
 
-function computeDiagonalPlankExact(roomL, roomW, Pl, Pw) {
+// An alcove's rectangle in the same room-local coordinate space diagonal
+// plank's polygons already live in: a "far" alcove sits just past the L
+// wall (x from roomL to roomL+depth), a "near" one sits just before the
+// start wall (x from -depth to 0) — same convention BlueprintDiagram and
+// the row-based engine already use.
+function alcoveRectsFor(roomL, alcoves) {
+  return (alcoves || [])
+    .filter((a) => a.span > 0 && a.depth > 0)
+    .map((a) => (a.wall === "near"
+      ? { x0: -a.depth, y0: a.offset, x1: 0, y1: a.offset + a.span }
+      : { x0: roomL, y0: a.offset, x1: roomL + a.depth, y1: a.offset + a.span }));
+}
+
+function computeDiagonalPlankExact(roomL, roomW, Pl, Pw, alcoves = []) {
   const d = 1 / Math.sqrt(2);
   const makePlank = (x0, y0) => [[x0, y0], [x0 + Pl * d, y0 + Pl * d], [x0 + Pl * d - Pw * d, y0 + Pl * d + Pw * d], [x0 - Pw * d, y0 + Pw * d]];
-  const diag = roomL + roomW;
+  const alcoveRects = alcoveRectsFor(roomL, alcoves);
+  // Widen the swept region to whatever extra space the alcoves add, so
+  // candidate planks are actually generated out there before clipping —
+  // otherwise pieces that would only fall inside an alcove never get built.
+  const minX = Math.min(0, ...alcoveRects.map((r) => r.x0));
+  const maxX = Math.max(roomL, ...alcoveRects.map((r) => r.x1));
+  const minY = Math.min(0, ...alcoveRects.map((r) => r.y0));
+  const maxY = Math.max(roomW, ...alcoveRects.map((r) => r.y1));
+  const diag = (maxX - minX) + (maxY - minY);
   const dyRow = Pw * Math.SQRT2;
   const nRows = Math.ceil(diag / dyRow) + 6;
   const nPieces = Math.ceil(diag / (Pl * d)) + 6;
 
-  const estimatedWork = (2 * nRows + 1) * (2 * nPieces);
+  const estimatedWork = (2 * nRows + 1) * (2 * nPieces) * (1 + alcoveRects.length);
   if (!isFinite(estimatedWork) || estimatedWork > 400000) return null;
 
   const pieces = [];
@@ -313,14 +334,26 @@ function computeDiagonalPlankExact(roomL, roomW, Pl, Pw) {
       const p = makePlank(x0, y0);
       x0 += Pl * d; y0 += Pl * d;
       const xs = p.map((q) => q[0]), ys = p.map((q) => q[1]);
-      if (Math.max(...xs) < 0 || Math.min(...xs) > roomL || Math.max(...ys) < 0 || Math.min(...ys) > roomW) continue;
+      if (Math.max(...xs) < minX || Math.min(...xs) > maxX || Math.max(...ys) < minY || Math.min(...ys) > maxY) continue;
+
       const clipped = clipPolyToRect(p, 0, 0, roomL, roomW);
       if (clipped.length >= 3) {
         const area = shoelaceArea(clipped);
-        if (area < 1e-6) continue; // discard degenerate boundary slivers
-        const full = Math.abs(area - Pl * Pw) < 1e-6;
-        const cutSpec = full ? null : extractDiagonalCutSpec(clipped, pieceX0, pieceY0, "H", Pw);
-        pieces.push({ poly: clipped, area, full, cutSpec });
+        if (area >= 1e-6) {
+          const full = Math.abs(area - Pl * Pw) < 1e-6;
+          const cutSpec = full ? null : extractDiagonalCutSpec(clipped, pieceX0, pieceY0, "H", Pw);
+          pieces.push({ poly: clipped, area, full, cutSpec });
+        }
+      }
+
+      for (const rect of alcoveRects) {
+        const clippedA = clipPolyToRect(p, rect.x0, rect.y0, rect.x1, rect.y1);
+        if (clippedA.length < 3) continue;
+        const areaA = shoelaceArea(clippedA);
+        if (areaA < 1e-6) continue; // discard degenerate boundary slivers
+        const fullA = Math.abs(areaA - Pl * Pw) < 1e-6;
+        const cutSpecA = fullA ? null : extractDiagonalCutSpec(clippedA, pieceX0, pieceY0, "H", Pw);
+        pieces.push({ poly: clippedA, area: areaA, full: fullA, cutSpec: cutSpecA, inAlcove: true });
       }
     }
   }
