@@ -2,8 +2,23 @@ import { useState, useEffect } from "react";
 import { onAuthChange, signInWithEmail, signInWithGoogle, signOut, getCurrentUser } from "./lib/auth";
 import { listJobs, createJob, deleteJob, toggleArchiveJob } from "./lib/jobsApi";
 import { getSubscriptionStatus, isContractorPlan, startCheckout, openBillingPortal, FREE_TIER_JOB_LIMIT } from "./lib/subscription";
+import { computeJobInvoiceTotal } from "./lib/invoiceTotal";
 import { JobWorkspace } from "./components/JobWorkspace";
 import { COLORS } from "./lib/colors";
+
+// Start of the current week (Monday)/month/year, as a timestamp — a job
+// counts toward a period if its last-updated time falls on or after this.
+function periodStart(period) {
+  const now = new Date();
+  if (period === "week") {
+    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const day = d.getDay();
+    d.setDate(d.getDate() - (day === 0 ? 6 : day - 1));
+    return d.getTime();
+  }
+  if (period === "year") return new Date(now.getFullYear(), 0, 1).getTime();
+  return new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+}
 
 const inputStyle = { fontFamily: "Inter", fontSize: 16, padding: "12px 12px", minHeight: 44, borderRadius: 8, border: `1px solid ${COLORS.border}`, background: "#FBFAF7", color: COLORS.ink, width: "100%" };
 const primaryButtonStyle = { minHeight: 48, borderRadius: 8, border: "none", background: `linear-gradient(135deg, ${COLORS.wood1}, ${COLORS.wood2})`, color: "#FFFFFF", fontFamily: "JetBrains Mono", fontSize: 13, fontWeight: 600, cursor: "pointer" };
@@ -80,6 +95,7 @@ function JobList({ user, onOpenJob }) {
   const [checkoutNotice, setCheckoutNotice] = useState("");
   const [upgrading, setUpgrading] = useState(false);
   const [portalLoading, setPortalLoading] = useState(false);
+  const [summaryPeriod, setSummaryPeriod] = useState("month");
 
   const refresh = async () => {
     try {
@@ -106,6 +122,22 @@ function JobList({ user, onOpenJob }) {
   const activeJobCount = jobs ? jobs.filter((j) => !j.archived).length : 0;
   const onContractorPlan = isContractorPlan(subscription);
   const atFreeLimit = !onContractorPlan && activeJobCount >= FREE_TIER_JOB_LIMIT;
+
+  // Revenue summary — counts a job (archived or not) if it's marked
+  // Complete and was last touched within the selected period. Reuses the
+  // exact same total the Invoice step shows, computed from each job's
+  // stored data blob, so this can never drift from what the contractor
+  // actually sees on an individual invoice.
+  const periodMs = jobs ? periodStart(summaryPeriod) : 0;
+  const completedInPeriod = jobs ? jobs.filter((j) => j.status === "complete" && j.updatedAt >= periodMs) : [];
+  const summaryValue = completedInPeriod.reduce((sum, j) => {
+    if (!j.jobData) return sum;
+    try {
+      return sum + computeJobInvoiceTotal(j.jobData).total;
+    } catch {
+      return sum;
+    }
+  }, 0);
 
   const handleCreate = async () => {
     if (atFreeLimit) return;
@@ -184,6 +216,37 @@ function JobList({ user, onOpenJob }) {
       {checkoutNotice && (
         <p style={{ fontFamily: "Inter", fontSize: 13, color: COLORS.sub, background: "#F0EEE7", borderRadius: 8, padding: "10px 12px", marginBottom: 16 }}>{checkoutNotice}</p>
       )}
+
+      <section style={{ background: COLORS.panel, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: 16, marginBottom: 16 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+          <span style={{ fontFamily: "Space Grotesk", fontWeight: 600, fontSize: 14, color: COLORS.ink }}>Summary</span>
+          <div style={{ display: "flex", border: `1px solid ${COLORS.border}`, borderRadius: 7, overflow: "hidden" }}>
+            {[["week", "Week"], ["month", "Month"], ["year", "Year"]].map(([id, label]) => (
+              <button
+                key={id}
+                onClick={() => setSummaryPeriod(id)}
+                style={{
+                  minHeight: 30, padding: "0 10px", fontFamily: "JetBrains Mono", fontSize: 11, fontWeight: 600, border: "none",
+                  background: summaryPeriod === id ? `linear-gradient(135deg, ${COLORS.wood1}, ${COLORS.wood2})` : "#FBFAF7",
+                  color: summaryPeriod === id ? "#FFFFFF" : COLORS.sub, cursor: "pointer",
+                }}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+          <div style={{ background: "#FBFAF7", borderRadius: 8, padding: "10px 12px", borderLeft: `3px solid ${COLORS.reuse}` }}>
+            <div style={{ fontFamily: "Inter", fontSize: 11, color: COLORS.sub, textTransform: "uppercase" }}>Jobs completed</div>
+            <div style={{ fontFamily: "JetBrains Mono", fontSize: 20, fontWeight: 600, marginTop: 2 }}>{completedInPeriod.length}</div>
+          </div>
+          <div style={{ background: "#FBFAF7", borderRadius: 8, padding: "10px 12px", borderLeft: `3px solid ${COLORS.wood1}` }}>
+            <div style={{ fontFamily: "Inter", fontSize: 11, color: COLORS.sub, textTransform: "uppercase" }}>Value of work</div>
+            <div style={{ fontFamily: "JetBrains Mono", fontSize: 20, fontWeight: 600, marginTop: 2 }}>{summaryValue.toFixed(2)}</div>
+          </div>
+        </div>
+      </section>
 
       <button onClick={handleCreate} disabled={atFreeLimit} style={{ ...primaryButtonStyle, width: "100%", fontSize: 14, opacity: atFreeLimit ? 0.5 : 1, cursor: atFreeLimit ? "default" : "pointer" }}>
         + New job

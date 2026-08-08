@@ -9,10 +9,12 @@ import { supabase } from "./supabaseClient";
 export async function listJobs() {
   const { data, error } = await supabase
     .from("jobs")
-    .select("id, name, client, status, archived, updated_at")
+    .select("id, name, client, status, archived, updated_at, data")
     .order("updated_at", { ascending: false });
   if (error) throw error;
   // Match the artifact's job-index shape: { id, name, client, status, updatedAt, archived }
+  // — jobData is included too so the job-list summary can compute revenue
+  // totals without a second round trip per job.
   return data.map((j) => ({
     id: j.id,
     name: j.name,
@@ -20,6 +22,7 @@ export async function listJobs() {
     status: j.status,
     archived: j.archived,
     updatedAt: new Date(j.updated_at).getTime(),
+    jobData: j.data,
   }));
 }
 

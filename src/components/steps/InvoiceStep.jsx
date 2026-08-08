@@ -1,43 +1,12 @@
 import { useState, useEffect } from "react";
 import { COLORS } from "../../lib/colors";
-import { computeSectionLayout, ROW_BASED_METHODS } from "../../lib/layoutEngine";
+import { computeJobInvoiceTotal } from "../../lib/invoiceTotal";
 import { getBusinessProfile, saveBusinessProfile } from "../../lib/jobsApi";
 import { Field } from "../shared/Field";
 import { TextField } from "../shared/TextField";
 import { ConfirmButton } from "../shared/ConfirmButton";
 
 let lineItemIdCounter = 1000;
-
-// Materials amount reuses the same verified calculation as ResultsStep for
-// the ported (row-based) patterns. For patterns not yet ported to real
-// components (see ResultsStep.jsx), this quietly omits the materials line
-// rather than showing a wrong number — labor, tax, extras, and payment
-// tracking all still work regardless, since those don't depend on the
-// pattern at all.
-function computeMaterialsAmount(job) {
-  if (ROW_BASED_METHODS.includes(job.layoutMethod)) {
-    const materialType = job.materialType;
-    if (materialType === "roll") return null;
-    const activeLength = materialType === "tile" ? job.tileLength : job.plankLength;
-    const activeWidth = materialType === "tile" ? job.tileWidth : job.plankWidth;
-    const Pl = parseFloat(activeLength), Pw = parseFloat(activeWidth);
-    const packSize = parseInt(job.packSize, 10);
-    const price = parseFloat(job.pricePerPack);
-    if ([Pl, Pw, packSize].some((v) => isNaN(v) || v <= 0) || isNaN(price) || price <= 0) return null;
-    const gap = materialType === "tile" ? parseFloat(job.groutGap) || 0 : 0;
-    let totalPlanks = 0;
-    for (const s of job.sections) {
-      const L = parseFloat(s.length), W = parseFloat(s.width);
-      if (isNaN(L) || isNaN(W) || L <= 0 || W <= 0 || Pw > W) continue;
-      const r = computeSectionLayout({ L, W, Pl, Pw, minStagger: parseFloat(job.minStagger) || 20, method: job.layoutMethod, seed: s.id, unit: job.unit, gap });
-      totalPlanks += r.totalPlanks;
-    }
-    const bufNum = Math.max(0, parseFloat(job.buffer) || 0);
-    const bufferedPacks = Math.ceil((totalPlanks * (1 + bufNum / 100)) / packSize);
-    return { amount: bufferedPacks * price, bufferedPacks, price, packLabel: materialType === "tile" ? "box" : "pack" };
-  }
-  return null;
-}
 
 export function InvoiceStep({ job, updateJob, jobName, clientName, setClientName }) {
   const [business, setBusiness] = useState({ name: "", contact: "", bank_details: "" });
@@ -58,14 +27,10 @@ export function InvoiceStep({ job, updateJob, jobName, clientName, setClientName
     extraLineItems, paymentStatus, depositAmount,
   } = job;
 
-  const materials = computeMaterialsAmount(job);
+  const { total, subtotal, tax, materials } = computeJobInvoiceTotal(job);
   const materialsAmount = materials ? materials.amount : 0;
   const laborAmount = Math.max(0, parseFloat(laborCost) || 0);
-  const extrasAmount = extraLineItems.reduce((sum, li) => sum + Math.max(0, parseFloat(li.amount) || 0), 0);
-  const subtotal = materialsAmount + laborAmount + extrasAmount;
   const taxPct = Math.max(0, parseFloat(taxRate) || 0);
-  const tax = subtotal * (taxPct / 100);
-  const total = subtotal + tax;
   const depositPaid = paymentStatus === "deposit" ? Math.max(0, parseFloat(depositAmount) || 0) : 0;
   const depositExceedsTotal = paymentStatus === "deposit" && depositPaid > total + 0.01;
   const balanceDue = paymentStatus === "paid" ? 0 : Math.max(0, total - depositPaid);
