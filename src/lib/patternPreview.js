@@ -28,10 +28,16 @@ export function computePatternPreview(job) {
   if (isNaN(Pl) || isNaN(Pw) || Pl <= 0 || Pw <= 0) return null;
 
   const gap = materialType === "tile" ? parseFloat(job.groutGap) || 0 : 0;
+  // Same parsing ResultsStep.jsx applies before handing alcoves to the
+  // engine — raw job state keeps these as form-input strings.
+  const alcoves = (s.alcoves || []).map((a) => ({
+    id: a.id, offset: parseFloat(a.offset) || 0, span: parseFloat(a.span) || 0,
+    depth: parseFloat(a.depth) || 0, wall: a.wall === "near" ? "near" : "far",
+  }));
 
   if (ROW_BASED_METHODS.includes(layoutMethod)) {
     if (Pw > W) return null;
-    const result = computeSectionLayout({ L, W, Pl, Pw, minStagger: parseFloat(job.minStagger) || 20, method: layoutMethod, seed: s.id || 1, unit, gap });
+    const result = computeSectionLayout({ L, W, Pl, Pw, minStagger: parseFloat(job.minStagger) || 20, method: layoutMethod, seed: s.id || 1, unit, gap, alcoves });
     return { kind: "blueprint", result: { ...result, L, W } };
   }
 
@@ -54,9 +60,9 @@ export function computePatternPreview(job) {
   }
   if (layoutMethod === "diagonalplank" || layoutMethod === "diagonalherringbone") {
     if (layoutMethod === "diagonalherringbone" && Pl < Pw - 1e-9) return null;
-    const pieces = layoutMethod === "diagonalplank" ? computeDiagonalPlankExact(L, W, Pl, Pw) : computeDiagonalHerringboneExact(L, W, Pl, Pw);
+    const pieces = layoutMethod === "diagonalplank" ? computeDiagonalPlankExact(L, W, Pl, Pw, alcoves) : computeDiagonalHerringboneExact(L, W, Pl, Pw);
     if (!pieces) return null;
-    return { kind: "diagonal", result: { diagonalPieces: pieces, diagonalKind: layoutMethod, totalPlanks: pieces.length, L, W } };
+    return { kind: "diagonal", result: { diagonalPieces: pieces, diagonalKind: layoutMethod, totalPlanks: pieces.length, alcoves, L, W } };
   }
   if (layoutMethod === "pinwheel") {
     if (Pl <= Pw + 1e-9) return null;
