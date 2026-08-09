@@ -93,11 +93,10 @@ function SignInScreen({ onBack }) {
   );
 }
 
-function JobList({ user, onOpenJob }) {
+function JobList({ user, onOpenJob, subscription, setSubscription }) {
   const [jobs, setJobs] = useState(null);
   const [error, setError] = useState("");
   const [showArchived, setShowArchived] = useState(false);
-  const [subscription, setSubscription] = useState(null);
   const [checkoutNotice, setCheckoutNotice] = useState("");
   const [upgrading, setUpgrading] = useState(false);
   const [portalLoading, setPortalLoading] = useState(false);
@@ -113,7 +112,6 @@ function JobList({ user, onOpenJob }) {
 
   useEffect(() => {
     refresh();
-    getSubscriptionStatus(user.id).then(setSubscription).catch(() => {});
 
     const checkout = new URLSearchParams(window.location.search).get("checkout");
     if (checkout === "success") {
@@ -323,11 +321,19 @@ export default function App() {
   const [user, setUser] = useState(undefined); // undefined = still checking, null = signed out
   const [openJobId, setOpenJobId] = useState(null);
   const [showSignIn, setShowSignIn] = useState(false);
+  // Lifted above JobList/JobWorkspace so both can gate features on plan —
+  // JobWorkspace needs it too now (Invoice is Contractor-only), not just
+  // the job list's own badge/limit checks.
+  const [subscription, setSubscription] = useState(null);
 
   useEffect(() => {
     getCurrentUser().then(setUser);
     return onAuthChange(setUser);
   }, []);
+
+  useEffect(() => {
+    if (user) getSubscriptionStatus(user.id).then(setSubscription).catch(() => {});
+  }, [user]);
 
   if (user === undefined) return null; // brief auth check, avoid a flash of the sign-in screen
   if (!user) {
@@ -335,6 +341,15 @@ export default function App() {
       ? <SignInScreen onBack={() => setShowSignIn(false)} />
       : <LandingPage onGetStarted={() => setShowSignIn(true)} />;
   }
-  if (openJobId) return <JobWorkspace jobId={openJobId} onBackToJobs={() => setOpenJobId(null)} />;
-  return <JobList user={user} onOpenJob={setOpenJobId} />;
+  if (openJobId) {
+    return (
+      <JobWorkspace
+        jobId={openJobId}
+        onBackToJobs={() => setOpenJobId(null)}
+        user={user}
+        onContractorPlan={isContractorPlan(subscription)}
+      />
+    );
+  }
+  return <JobList user={user} onOpenJob={setOpenJobId} subscription={subscription} setSubscription={setSubscription} />;
 }

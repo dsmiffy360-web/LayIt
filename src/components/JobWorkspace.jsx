@@ -7,6 +7,39 @@ import { PatternStep } from "./steps/PatternStep";
 import { ResultsStep } from "./steps/ResultsStep";
 import { InvoiceStep } from "./steps/InvoiceStep";
 import { ROW_BASED_METHODS } from "../lib/layoutEngine";
+import { startCheckout } from "../lib/subscription";
+
+// Invoice is Contractor-only. Shown in place of the real step for a free-
+// plan user — visible and reachable (not hidden from the step nav) so the
+// upgrade path is obvious, rather than a feature that just silently isn't
+// there.
+function InvoicePaywall({ user }) {
+  const [upgrading, setUpgrading] = useState(false);
+  const handleUpgrade = async () => {
+    setUpgrading(true);
+    try {
+      await startCheckout(user.id, user.email);
+    } catch {
+      setUpgrading(false);
+    }
+  };
+  return (
+    <section style={{ background: COLORS.panel, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 24, textAlign: "center" }}>
+      <div style={{ fontFamily: "Space Grotesk", fontWeight: 600, fontSize: 16, marginBottom: 8 }}>Invoicing is a Contractor feature</div>
+      <p style={{ fontSize: 13, color: COLORS.sub, margin: "0 0 18px", lineHeight: 1.5 }}>
+        Client-ready invoices, saved business/bank details, and payment tracking are part of the Contractor plan.
+        Start a 7-day free trial to unlock this job's invoice.
+      </p>
+      <button
+        onClick={handleUpgrade}
+        disabled={upgrading}
+        style={{ minHeight: 48, borderRadius: 8, border: "none", background: `linear-gradient(135deg, ${COLORS.wood1}, ${COLORS.wood2})`, color: "#FFFFFF", fontFamily: "JetBrains Mono", fontSize: 13, fontWeight: 600, cursor: "pointer", padding: "0 24px" }}
+      >
+        {upgrading ? "Redirecting…" : "Start free trial"}
+      </button>
+    </section>
+  );
+}
 
 // Default shape for a brand-new job's `data` JSONB blob — matches the
 // artifact's defaultJobData() field-for-field, so a job created here reads
@@ -54,7 +87,7 @@ const STEPS = [
   { key: "invoice", label: "Invoice", hint: "Turn the cost estimate into something you can hand a client." },
 ];
 
-export function JobWorkspace({ jobId, onBackToJobs }) {
+export function JobWorkspace({ jobId, onBackToJobs, user, onContractorPlan }) {
   const [job, setJob] = useState(null);
   const [jobName, setJobName] = useState("New job");
   const [clientName, setClientName] = useState("");
@@ -181,7 +214,11 @@ export function JobWorkspace({ jobId, onBackToJobs }) {
       {step === 1 && <MaterialStep {...stepProps} />}
       {step === 2 && <PatternStep {...stepProps} />}
       {step === 3 && <ResultsStep {...stepProps} jobName={jobName} />}
-      {step === 4 && <InvoiceStep {...stepProps} jobName={jobName} clientName={clientName} setClientName={setClientName} />}
+      {step === 4 && (
+        onContractorPlan
+          ? <InvoiceStep {...stepProps} jobName={jobName} clientName={clientName} setClientName={setClientName} />
+          : <InvoicePaywall user={user} />
+      )}
 
       <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
         {step > 0 && (
