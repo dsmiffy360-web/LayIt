@@ -91,6 +91,7 @@ export function JobWorkspace({ jobId, onBackToJobs, user, onContractorPlan }) {
   const [job, setJob] = useState(null);
   const [jobName, setJobName] = useState("New job");
   const [clientName, setClientName] = useState("");
+  const [clientId, setClientId] = useState(null);
   const [jobStatus, setJobStatus] = useState("quote");
   const [step, setStep] = useState(0);
   const [saveStatus, setSaveStatus] = useState("");
@@ -106,6 +107,7 @@ export function JobWorkspace({ jobId, onBackToJobs, user, onContractorPlan }) {
         setJob({ ...defaultJobData(), ...data });
         setJobName(data.name || "New job");
         setClientName(data.client || "");
+        setClientId(data.clientId || null);
         setJobStatus(data.status || "quote");
         setLoading(false);
       })
@@ -136,7 +138,7 @@ export function JobWorkspace({ jobId, onBackToJobs, user, onContractorPlan }) {
     clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(async () => {
       try {
-        await saveJob(jobId, { ...job, name: jobName, client: clientName, status: jobStatus });
+        await saveJob(jobId, { ...job, name: jobName, client: clientName, clientId, status: jobStatus });
         setSaveStatus("Saved");
         setTimeout(() => setSaveStatus(""), 1500);
       } catch (err) {
@@ -144,7 +146,7 @@ export function JobWorkspace({ jobId, onBackToJobs, user, onContractorPlan }) {
       }
     }, 600);
     return () => clearTimeout(saveTimer.current);
-  }, [job, jobName, clientName, jobStatus, jobId, loading]);
+  }, [job, jobName, clientName, clientId, jobStatus, jobId, loading]);
 
   if (loading) return <div style={{ padding: 40, textAlign: "center", color: COLORS.sub }}>Loading job…</div>;
   if (loadError) return <div style={{ padding: 40, textAlign: "center", color: COLORS.waste }}>Couldn't load this job: {loadError}</div>;
@@ -216,7 +218,7 @@ export function JobWorkspace({ jobId, onBackToJobs, user, onContractorPlan }) {
       {step === 3 && <ResultsStep {...stepProps} jobName={jobName} />}
       {step === 4 && (
         onContractorPlan
-          ? <InvoiceStep {...stepProps} jobName={jobName} clientName={clientName} setClientName={setClientName} />
+          ? <InvoiceStep {...stepProps} jobId={jobId} jobName={jobName} clientName={clientName} setClientName={setClientName} clientId={clientId} setClientId={setClientId} />
           : <InvoicePaywall user={user} />
       )}
 

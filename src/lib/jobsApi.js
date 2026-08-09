@@ -31,7 +31,7 @@ export async function loadJob(jobId) {
   if (error) throw error;
   // The artifact's applyJobData() expects one flat object with name/client
   // alongside the rest of the job fields — merge data JSONB back out.
-  return { ...data.data, name: data.name, client: data.client, status: data.status, archived: data.archived };
+  return { ...data.data, name: data.name, client: data.client, clientId: data.client_id, status: data.status, archived: data.archived };
 }
 
 export async function createJob(initialData) {
@@ -73,6 +73,7 @@ export async function saveJob(jobId, jobData) {
     .update({
       name: jobData.name,
       client: jobData.client,
+      client_id: jobData.clientId || null,
       status: jobData.status,
       data: jobData,
     })

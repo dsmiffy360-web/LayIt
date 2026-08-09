@@ -15,6 +15,21 @@ create table business_profiles (
   updated_at timestamptz default now()
 );
 
+-- Clients: a small saved address book so a repeat client doesn't need
+-- their name/address retyped on every job — also the join point for
+-- "past jobs for this client" on the Invoice step.
+create table clients (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references auth.users(id) on delete cascade not null,
+  name text not null,
+  address text default '',
+  contact text default '',
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+create index clients_user_id_idx on clients(user_id);
+
 -- Jobs: one row per job. `data` holds everything the artifact currently
 -- keeps in React state for a job (sections, alcoves, material, pattern,
 -- invoice fields, etc.) as JSONB — same shape as the localStorage blob,
@@ -24,6 +39,7 @@ create table jobs (
   user_id uuid references auth.users(id) on delete cascade not null,
   name text not null default 'New job',
   client text default '',
+  client_id uuid references clients(id) on delete set null,
   status text default 'quote' check (status in ('quote', 'in-progress', 'complete')),
   archived boolean default false,
   data jsonb not null default '{}'::jsonb,
@@ -33,6 +49,7 @@ create table jobs (
 
 create index jobs_user_id_idx on jobs(user_id);
 create index jobs_updated_at_idx on jobs(user_id, updated_at desc);
+create index jobs_client_id_idx on jobs(client_id);
 
 -- Saved materials: a small reusable price book so a contractor who mostly
 -- installs the same handful of products doesn't retype length/width/pack
@@ -73,6 +90,7 @@ alter table business_profiles enable row level security;
 alter table jobs enable row level security;
 alter table subscriptions enable row level security;
 alter table saved_materials enable row level security;
+alter table clients enable row level security;
 
 create policy "own business profile" on business_profiles
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
@@ -81,6 +99,9 @@ create policy "own jobs" on jobs
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
 create policy "own saved materials" on saved_materials
+  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+create policy "own clients" on clients
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
 create policy "own subscription read" on subscriptions
@@ -107,4 +128,7 @@ create trigger business_profiles_updated_at before update on business_profiles
   for each row execute function set_updated_at();
 
 create trigger saved_materials_updated_at before update on saved_materials
+  for each row execute function set_updated_at();
+
+create trigger clients_updated_at before update on clients
   for each row execute function set_updated_at();
