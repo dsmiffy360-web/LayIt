@@ -4,6 +4,7 @@ import { listJobs, createJob, deleteJob, toggleArchiveJob } from "./lib/jobsApi"
 import { getSubscriptionStatus, isContractorPlan, startCheckout, openBillingPortal, FREE_TIER_JOB_LIMIT } from "./lib/subscription";
 import { computeJobInvoiceTotal } from "./lib/invoiceTotal";
 import { JobWorkspace } from "./components/JobWorkspace";
+import { LandingPage } from "./components/LandingPage";
 import { COLORS } from "./lib/colors";
 
 // Start of the current week (Monday)/month/year, as a timestamp — a job
@@ -28,7 +29,7 @@ const secondaryButtonStyle = { minHeight: 44, borderRadius: 8, border: `1px soli
 // now wired in for the ported patterns — see JobWorkspace.jsx and
 // README.md "What's ported vs what's next" for exactly what that covers.
 
-function SignInScreen() {
+function SignInScreen({ onBack }) {
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState(false);
   const [error, setError] = useState("");
@@ -46,6 +47,11 @@ function SignInScreen() {
 
   return (
     <div style={{ maxWidth: 360, margin: "72px auto", padding: "0 16px" }}>
+      {onBack && (
+        <button onClick={onBack} style={{ background: "none", border: "none", color: COLORS.sub, cursor: "pointer", padding: 0, marginBottom: 16, fontFamily: "JetBrains Mono", fontSize: 12, fontWeight: 600 }}>
+          ← Back
+        </button>
+      )}
       <h1 style={{
         fontFamily: "Space Grotesk", fontWeight: 700, fontSize: 34, textAlign: "center", margin: "0 0 28px",
         color: COLORS.accentText,
@@ -316,6 +322,7 @@ function JobList({ user, onOpenJob }) {
 export default function App() {
   const [user, setUser] = useState(undefined); // undefined = still checking, null = signed out
   const [openJobId, setOpenJobId] = useState(null);
+  const [showSignIn, setShowSignIn] = useState(false);
 
   useEffect(() => {
     getCurrentUser().then(setUser);
@@ -323,7 +330,11 @@ export default function App() {
   }, []);
 
   if (user === undefined) return null; // brief auth check, avoid a flash of the sign-in screen
-  if (!user) return <SignInScreen />;
+  if (!user) {
+    return showSignIn
+      ? <SignInScreen onBack={() => setShowSignIn(false)} />
+      : <LandingPage onGetStarted={() => setShowSignIn(true)} />;
+  }
   if (openJobId) return <JobWorkspace jobId={openJobId} onBackToJobs={() => setOpenJobId(null)} />;
   return <JobList user={user} onOpenJob={setOpenJobId} />;
 }
