@@ -2,6 +2,7 @@ import { COLORS } from "../../lib/colors";
 import { UNIT_TO_CM, UNIT_DECIMALS } from "../../lib/layoutEngine";
 import { Field } from "../shared/Field";
 import { ConfirmButton } from "../shared/ConfirmButton";
+import { LivePreview } from "../LivePreview";
 
 let sectionIdCounter = 1000; // seeded high — real IDs come from existing job data
 let alcoveIdCounter = 1000;
@@ -138,6 +139,8 @@ export function SetupStep({ job, updateJob }) {
           </button>
         ))}
       </section>
+
+      <LivePreview job={job} />
 
       <section style={{ background: COLORS.panel, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 18, marginBottom: 14 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14, flexWrap: "wrap", gap: 10 }}>

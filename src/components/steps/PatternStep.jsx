@@ -1,26 +1,6 @@
 import { COLORS } from "../../lib/colors";
 import { computePatternPreview } from "../../lib/patternPreview";
-import { BlueprintDiagram } from "../diagrams/BlueprintDiagram";
-import { HerringboneExactDiagram } from "../diagrams/HerringboneExactDiagram";
-import { ChevronExactDiagram } from "../diagrams/ChevronExactDiagram";
-import { BasketWeaveDiagram } from "../diagrams/BasketWeaveDiagram";
-import { DiagonalExactDiagram } from "../diagrams/DiagonalExactDiagram";
-import { PinwheelDiagram } from "../diagrams/PinwheelDiagram";
-import { DoubleHerringboneDiagram } from "../diagrams/DoubleHerringboneDiagram";
-import { HexagonDiagram } from "../diagrams/HexagonDiagram";
-import { VersaillesDiagram } from "../diagrams/VersaillesDiagram";
-
-const PREVIEW_DIAGRAMS = {
-  blueprint: BlueprintDiagram,
-  herringbone: HerringboneExactDiagram,
-  chevron: ChevronExactDiagram,
-  basketweave: BasketWeaveDiagram,
-  diagonal: DiagonalExactDiagram,
-  pinwheel: PinwheelDiagram,
-  doubleherringbone: DoubleHerringboneDiagram,
-  hexagon: HexagonDiagram,
-  versailles: VersaillesDiagram,
-};
+import { PREVIEW_DIAGRAMS } from "../LivePreview";
 
 const PATTERNS = [
   { id: "stagger-reuse", title: "Staggered — least waste", desc: "Each row's offcut starts the next, so joints fall randomly. Uses the fewest planks.", projects: ["floor"] },

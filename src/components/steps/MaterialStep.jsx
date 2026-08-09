@@ -3,6 +3,7 @@ import { ROW_BASED_METHODS } from "../../lib/layoutEngine";
 import { Field } from "../shared/Field";
 import { TextField } from "../shared/TextField";
 import { ConfirmButton } from "../shared/ConfirmButton";
+import { LivePreview } from "../LivePreview";
 
 let mixedWidthIdCounter = 1000;
 
@@ -28,6 +29,8 @@ export function MaterialStep({ job, updateJob }) {
   };
 
   return (
+    <>
+    <LivePreview job={job} />
     <section style={{ background: COLORS.panel, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 18, marginBottom: 18 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14, flexWrap: "wrap", gap: 10 }}>
         <span style={{ fontFamily: "Space Grotesk", fontWeight: 600, fontSize: 15 }}>
@@ -169,5 +172,6 @@ export function MaterialStep({ job, updateJob }) {
         </p>
       )}
     </section>
+    </>
   );
 }
