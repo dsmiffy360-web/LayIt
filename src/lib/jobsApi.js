@@ -9,7 +9,7 @@ import { supabase } from "./supabaseClient";
 export async function listJobs() {
   const { data, error } = await supabase
     .from("jobs")
-    .select("id, name, client, status, archived, updated_at, data")
+    .select("id, name, client, status, archived, updated_at, scheduled_date, data")
     .order("updated_at", { ascending: false });
   if (error) throw error;
   // Match the artifact's job-index shape: { id, name, client, status, updatedAt, archived }
@@ -22,6 +22,7 @@ export async function listJobs() {
     status: j.status,
     archived: j.archived,
     updatedAt: new Date(j.updated_at).getTime(),
+    scheduledDate: j.scheduled_date,
     jobData: j.data,
   }));
 }
@@ -31,7 +32,7 @@ export async function loadJob(jobId) {
   if (error) throw error;
   // The artifact's applyJobData() expects one flat object with name/client
   // alongside the rest of the job fields — merge data JSONB back out.
-  return { ...data.data, name: data.name, client: data.client, clientId: data.client_id, status: data.status, archived: data.archived };
+  return { ...data.data, name: data.name, client: data.client, clientId: data.client_id, status: data.status, archived: data.archived, scheduledDate: data.scheduled_date };
 }
 
 export async function createJob(initialData) {
@@ -75,6 +76,7 @@ export async function saveJob(jobId, jobData) {
       client: jobData.client,
       client_id: jobData.clientId || null,
       status: jobData.status,
+      scheduled_date: jobData.scheduledDate || null,
       data: jobData,
     })
     .eq("id", jobId);

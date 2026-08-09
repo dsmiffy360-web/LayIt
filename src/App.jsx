@@ -143,6 +143,14 @@ function JobList({ user, onOpenJob, subscription, setSubscription }) {
     }
   }, 0);
 
+  // Upcoming — active jobs with a scheduled date today or later, soonest
+  // first. A lightweight "what's coming up" list rather than a full
+  // calendar view.
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const upcomingJobs = jobs
+    ? jobs.filter((j) => !j.archived && j.scheduledDate && j.scheduledDate >= todayStr).sort((a, b) => a.scheduledDate.localeCompare(b.scheduledDate))
+    : [];
+
   const handleCreate = async () => {
     if (atFreeLimit) return;
     try {
@@ -259,6 +267,27 @@ function JobList({ user, onOpenJob, subscription, setSubscription }) {
         <p style={{ fontFamily: "Inter", fontSize: 12, color: COLORS.sub, marginTop: 6 }}>
           Free plan is limited to {FREE_TIER_JOB_LIMIT} active job — archive one, or start a free 7-day trial to add more.
         </p>
+      )}
+
+      {upcomingJobs.length > 0 && (
+        <section style={{ background: COLORS.panel, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: "4px 16px", marginTop: 16 }}>
+          <div style={{ fontFamily: "Space Grotesk", fontWeight: 600, fontSize: 14, color: COLORS.ink, padding: "12px 0 6px" }}>Upcoming</div>
+          {upcomingJobs.map((j, i, arr) => (
+            <button
+              key={j.id}
+              onClick={() => onOpenJob(j.id)}
+              style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", padding: "10px 0", borderTop: i > 0 ? `1px solid ${COLORS.border}` : "none", background: "none", border: "none", borderBottomWidth: 0, cursor: "pointer", textAlign: "left" }}
+            >
+              <div>
+                <div style={{ fontFamily: "JetBrains Mono", fontSize: 13, fontWeight: 600, color: COLORS.ink }}>{j.name}</div>
+                {j.client && <div style={{ fontFamily: "Inter", fontSize: 11, color: COLORS.sub, marginTop: 2 }}>{j.client}</div>}
+              </div>
+              <span style={{ fontFamily: "JetBrains Mono", fontSize: 12, color: COLORS.accentText, fontWeight: 600, whiteSpace: "nowrap" }}>
+                {new Date(j.scheduledDate + "T00:00:00").toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })}
+              </span>
+            </button>
+          ))}
+        </section>
       )}
 
       <section style={{ background: COLORS.panel, border: `1px solid ${COLORS.border}`, borderRadius: 12, marginTop: 16, padding: jobs.filter((j) => !j.archived).length ? "4px 16px" : 18 }}>

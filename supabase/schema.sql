@@ -42,6 +42,7 @@ create table jobs (
   client_id uuid references clients(id) on delete set null,
   status text default 'quote' check (status in ('quote', 'in-progress', 'complete')),
   archived boolean default false,
+  scheduled_date date default null, -- planned install/start date, shown in the job-list "Upcoming" section
   data jsonb not null default '{}'::jsonb,
   created_at timestamptz default now(),
   updated_at timestamptz default now()
@@ -50,6 +51,7 @@ create table jobs (
 create index jobs_user_id_idx on jobs(user_id);
 create index jobs_updated_at_idx on jobs(user_id, updated_at desc);
 create index jobs_client_id_idx on jobs(client_id);
+create index jobs_scheduled_date_idx on jobs(user_id, scheduled_date);
 
 -- Saved materials: a small reusable price book so a contractor who mostly
 -- installs the same handful of products doesn't retype length/width/pack

@@ -93,6 +93,7 @@ export function JobWorkspace({ jobId, onBackToJobs, user, onContractorPlan }) {
   const [clientName, setClientName] = useState("");
   const [clientId, setClientId] = useState(null);
   const [jobStatus, setJobStatus] = useState("quote");
+  const [scheduledDate, setScheduledDate] = useState("");
   const [step, setStep] = useState(0);
   const [saveStatus, setSaveStatus] = useState("");
   const [loading, setLoading] = useState(true);
@@ -109,6 +110,7 @@ export function JobWorkspace({ jobId, onBackToJobs, user, onContractorPlan }) {
         setClientName(data.client || "");
         setClientId(data.clientId || null);
         setJobStatus(data.status || "quote");
+        setScheduledDate(data.scheduledDate || "");
         setLoading(false);
       })
       .catch((err) => {
@@ -138,7 +140,7 @@ export function JobWorkspace({ jobId, onBackToJobs, user, onContractorPlan }) {
     clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(async () => {
       try {
-        await saveJob(jobId, { ...job, name: jobName, client: clientName, clientId, status: jobStatus });
+        await saveJob(jobId, { ...job, name: jobName, client: clientName, clientId, status: jobStatus, scheduledDate });
         setSaveStatus("Saved");
         setTimeout(() => setSaveStatus(""), 1500);
       } catch (err) {
@@ -146,7 +148,7 @@ export function JobWorkspace({ jobId, onBackToJobs, user, onContractorPlan }) {
       }
     }, 600);
     return () => clearTimeout(saveTimer.current);
-  }, [job, jobName, clientName, clientId, jobStatus, jobId, loading]);
+  }, [job, jobName, clientName, clientId, jobStatus, scheduledDate, jobId, loading]);
 
   if (loading) return <div style={{ padding: 40, textAlign: "center", color: COLORS.sub }}>Loading job…</div>;
   if (loadError) return <div style={{ padding: 40, textAlign: "center", color: COLORS.waste }}>Couldn't load this job: {loadError}</div>;
@@ -185,6 +187,22 @@ export function JobWorkspace({ jobId, onBackToJobs, user, onContractorPlan }) {
             </button>
           ))}
         </div>
+        <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ fontFamily: "Inter", fontSize: 11, fontWeight: 600, color: COLORS.sub, textTransform: "uppercase", letterSpacing: "0.04em", whiteSpace: "nowrap" }}>
+            Scheduled
+          </span>
+          <input
+            type="date"
+            value={scheduledDate}
+            onChange={(e) => setScheduledDate(e.target.value)}
+            style={{ flex: 1, minHeight: 36, borderRadius: 7, border: `1px solid ${COLORS.border}`, background: "#FBFAF7", color: COLORS.ink, fontFamily: "JetBrains Mono", fontSize: 12, padding: "0 8px" }}
+          />
+          {scheduledDate && (
+            <button onClick={() => setScheduledDate("")} aria-label="Clear scheduled date" style={{ border: "none", background: "none", color: COLORS.sub, cursor: "pointer", fontFamily: "JetBrains Mono", fontSize: 14, padding: "0 4px" }}>
+              ×
+            </button>
+          )}
+        </label>
       </section>
 
       {/* Step nav */}
