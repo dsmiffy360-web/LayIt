@@ -1,9 +1,11 @@
+import { useState, useEffect } from "react";
 import { COLORS } from "../../lib/colors";
 import { ROW_BASED_METHODS } from "../../lib/layoutEngine";
 import { Field } from "../shared/Field";
 import { TextField } from "../shared/TextField";
 import { ConfirmButton } from "../shared/ConfirmButton";
 import { LivePreview } from "../LivePreview";
+import { listSavedMaterials, createSavedMaterial, deleteSavedMaterial } from "../../lib/savedMaterials";
 
 let mixedWidthIdCounter = 1000;
 
@@ -28,9 +30,117 @@ export function MaterialStep({ job, updateJob }) {
     if (mixedWidths.length > 2) updateJob({ mixedWidths: mixedWidths.filter((w) => w.id !== id) });
   };
 
+  // Saved materials — a small reusable price book so a contractor who
+  // mostly installs the same handful of products doesn't retype
+  // length/width/pack size/price on every new job.
+  const [savedMaterials, setSavedMaterials] = useState(null);
+  const [savedError, setSavedError] = useState("");
+  const [showSaveForm, setShowSaveForm] = useState(false);
+  const [saveNameInput, setSaveNameInput] = useState("");
+
+  useEffect(() => {
+    listSavedMaterials().then(setSavedMaterials).catch((err) => setSavedError(err.message));
+  }, []);
+
+  const applySavedMaterial = (m) => {
+    if (m.material_type === "roll") {
+      updateJob({ materialType: "roll", materialName: m.name, rollWidth: m.roll_width, pricePerPack: m.price_per_pack });
+    } else if (m.material_type === "tile") {
+      updateJob({ materialType: "tile", materialName: m.name, tileLength: m.length, tileWidth: m.width, packSize: m.pack_size, pricePerPack: m.price_per_pack });
+    } else {
+      updateJob({ materialType: "plank", materialName: m.name, plankLength: m.length, plankWidth: m.width, packSize: m.pack_size, pricePerPack: m.price_per_pack });
+    }
+  };
+
+  const handleSaveMaterial = async () => {
+    const name = saveNameInput.trim();
+    if (!name) return;
+    const payload = {
+      name,
+      material_type: materialType,
+      length: materialType === "roll" ? "" : activeLength,
+      width: materialType === "roll" ? "" : activeWidth,
+      pack_size: materialType === "roll" ? "" : job.packSize,
+      price_per_pack: pricePerPack,
+      roll_width: materialType === "roll" ? job.rollWidth : "",
+    };
+    try {
+      const id = await createSavedMaterial(payload);
+      setSavedMaterials((prev) => [...prev, { id, ...payload }].sort((a, b) => a.name.localeCompare(b.name)));
+      setSaveNameInput("");
+      setShowSaveForm(false);
+    } catch (err) {
+      setSavedError(err.message);
+    }
+  };
+
+  const handleDeleteSavedMaterial = async (id) => {
+    try {
+      await deleteSavedMaterial(id);
+      setSavedMaterials((prev) => prev.filter((m) => m.id !== id));
+    } catch (err) {
+      setSavedError(err.message);
+    }
+  };
+
   return (
     <>
     <LivePreview job={job} />
+
+    <section style={{ background: COLORS.panel, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 18, marginBottom: 14 }}>
+      <div style={{ fontFamily: "Space Grotesk", fontWeight: 600, fontSize: 15, marginBottom: 10 }}>Saved materials</div>
+      {savedError && <p style={{ fontSize: 12, color: COLORS.wasteText, marginTop: 0, marginBottom: 10 }}>{savedError}</p>}
+      {savedMaterials && savedMaterials.length > 0 && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 10 }}>
+          {savedMaterials.map((m) => (
+            <div key={m.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", borderRadius: 7, border: `1px solid ${COLORS.border}`, background: "#FBFAF7" }}>
+              <button onClick={() => applySavedMaterial(m)} style={{ flex: 1, textAlign: "left", background: "none", border: "none", cursor: "pointer", padding: 0 }}>
+                <div style={{ fontFamily: "JetBrains Mono", fontSize: 13, fontWeight: 600, color: COLORS.ink }}>{m.name}</div>
+                <div style={{ fontFamily: "Inter", fontSize: 11, color: COLORS.sub, marginTop: 2 }}>
+                  {m.material_type === "roll"
+                    ? `Roll · ${m.roll_width}${unit} wide${m.price_per_pack ? ` · ${m.price_per_pack}/${unit === "in" ? "sq ft" : "m²"}` : ""}`
+                    : `${m.material_type === "tile" ? "Tile" : "Plank"} · ${m.length}×${m.width}${unit}${m.price_per_pack ? ` · ${m.price_per_pack}/pack` : ""}`}
+                </div>
+              </button>
+              <ConfirmButton
+                onConfirm={() => handleDeleteSavedMaterial(m.id)}
+                armedLabel="Remove?"
+                ariaLabel={`Remove saved material ${m.name}`}
+                style={{ minHeight: 36, border: "none", background: "none", color: COLORS.wasteText, cursor: "pointer", fontFamily: "JetBrains Mono", fontSize: 11, fontWeight: 600, padding: "0 8px" }}
+              >
+                Remove
+              </ConfirmButton>
+            </div>
+          ))}
+        </div>
+      )}
+      {savedMaterials && savedMaterials.length === 0 && !showSaveForm && (
+        <p style={{ fontSize: 12, color: COLORS.sub, marginTop: 0, marginBottom: 10 }}>
+          Nothing saved yet — set up a material below, then save it here to reuse on future jobs.
+        </p>
+      )}
+      {showSaveForm ? (
+        <div style={{ display: "flex", gap: 8 }}>
+          <div style={{ flex: 1 }}>
+            <TextField label="Save current material as" value={saveNameInput} onChange={setSaveNameInput} placeholder="e.g. Oak Herringbone 120x19" />
+          </div>
+          <button onClick={handleSaveMaterial} style={{ alignSelf: "flex-end", minHeight: 44, minWidth: 44, borderRadius: 8, border: "none", background: `linear-gradient(135deg, ${COLORS.wood1}, ${COLORS.wood2})`, color: "#FFFFFF", fontFamily: "JetBrains Mono", fontSize: 13, fontWeight: 600, cursor: "pointer", padding: "0 16px" }}>
+            Save
+          </button>
+          <button onClick={() => { setShowSaveForm(false); setSaveNameInput(""); }} style={{ alignSelf: "flex-end", minHeight: 44, borderRadius: 8, border: `1px solid ${COLORS.border}`, background: "#FBFAF7", color: COLORS.sub, fontFamily: "JetBrains Mono", fontSize: 13, fontWeight: 600, cursor: "pointer", padding: "0 14px" }}>
+            Cancel
+          </button>
+        </div>
+      ) : (
+        <button
+          onClick={() => setShowSaveForm(true)}
+          style={{ width: "100%", minHeight: 40, fontFamily: "JetBrains Mono", fontSize: 12, fontWeight: 600, borderRadius: 7, border: `1px dashed ${COLORS.accent}`, background: "transparent", color: COLORS.accentText, cursor: "pointer" }}
+        >
+          + Save current material for reuse
+        </button>
+      )}
+    </section>
+
     <section style={{ background: COLORS.panel, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 18, marginBottom: 18 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14, flexWrap: "wrap", gap: 10 }}>
         <span style={{ fontFamily: "Space Grotesk", fontWeight: 600, fontSize: 15 }}>

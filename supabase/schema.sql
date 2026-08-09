@@ -34,6 +34,25 @@ create table jobs (
 create index jobs_user_id_idx on jobs(user_id);
 create index jobs_updated_at_idx on jobs(user_id, updated_at desc);
 
+-- Saved materials: a small reusable price book so a contractor who mostly
+-- installs the same handful of products doesn't retype length/width/pack
+-- size/price on every new job's Material step. One row per saved product.
+create table saved_materials (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references auth.users(id) on delete cascade not null,
+  name text not null,
+  material_type text not null default 'plank' check (material_type in ('plank', 'tile', 'roll')),
+  length text default '',
+  width text default '',
+  pack_size text default '',
+  price_per_pack text default '',
+  roll_width text default '',
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+create index saved_materials_user_id_idx on saved_materials(user_id);
+
 -- Subscription status, updated by the Stripe webhook — see
 -- /api/stripe-webhook. Kept separate from auth.users since Supabase
 -- manages that table; this is the join point for feature-gating.
@@ -53,11 +72,15 @@ create table subscriptions (
 alter table business_profiles enable row level security;
 alter table jobs enable row level security;
 alter table subscriptions enable row level security;
+alter table saved_materials enable row level security;
 
 create policy "own business profile" on business_profiles
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
 create policy "own jobs" on jobs
+  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+create policy "own saved materials" on saved_materials
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
 create policy "own subscription read" on subscriptions
@@ -81,4 +104,7 @@ create trigger jobs_updated_at before update on jobs
   for each row execute function set_updated_at();
 
 create trigger business_profiles_updated_at before update on business_profiles
+  for each row execute function set_updated_at();
+
+create trigger saved_materials_updated_at before update on saved_materials
   for each row execute function set_updated_at();
