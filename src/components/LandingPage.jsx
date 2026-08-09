@@ -4,7 +4,7 @@ const FEATURES = [
   { title: "14 lay patterns", desc: "Straight, herringbone, chevron, basket weave, hexagon, Versailles, and more — pick one and see it rendered before you commit material." },
   { title: "Real cut lists, not estimates", desc: "Exact piece counts and cut lengths for every pattern, with a tap-to-check-off list for cutting day." },
   { title: "Alcoves & odd-shaped rooms", desc: "Split a room into sections and add alcoves — the numbers account for them instead of quietly ignoring the nook." },
-  { title: "Client-ready invoices", desc: "Business profile and bank details saved once, reused on every job. Print, copy as text, or save as PDF. Contractor plan." },
+  { title: "Client-ready invoices", desc: "Your logo, business profile, and bank details saved once, reused on every job. Print, copy as text, or save as PDF. Contractor plan." },
   { title: "Works on your phone", desc: "Installable as an app on iOS or Android — measure and check off cuts on-site, not just at a desk." },
   { title: "Business summary", desc: "Jobs completed and value of work for this week, month, or year, at a glance on your job list." },
 ];

@@ -91,9 +91,9 @@ export async function deleteJob(jobId) {
 }
 
 export async function getBusinessProfile() {
-  const { data, error } = await supabase.from("business_profiles").select("name, contact, bank_details").maybeSingle();
+  const { data, error } = await supabase.from("business_profiles").select("name, contact, bank_details, logo").maybeSingle();
   if (error) throw error;
-  return data || { name: "", contact: "", bank_details: "" };
+  return data || { name: "", contact: "", bank_details: "", logo: null };
 }
 
 export async function saveBusinessProfile(profile) {

@@ -11,6 +11,7 @@ create table business_profiles (
   name text default '',
   contact text default '',
   bank_details text default '',
+  logo text default null, -- data URI, resized client-side before saving — Contractor-only (invoicing is gated to that plan already)
   updated_at timestamptz default now()
 );
 

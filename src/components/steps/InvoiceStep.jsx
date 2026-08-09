@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { COLORS } from "../../lib/colors";
 import { computeJobInvoiceTotal } from "../../lib/invoiceTotal";
 import { getBusinessProfile, saveBusinessProfile } from "../../lib/jobsApi";
+import { resizeImageToDataUri } from "../../lib/exportUtils";
 import { Field } from "../shared/Field";
 import { TextField } from "../shared/TextField";
 import { ConfirmButton } from "../shared/ConfirmButton";
@@ -9,8 +10,9 @@ import { ConfirmButton } from "../shared/ConfirmButton";
 let lineItemIdCounter = 1000;
 
 export function InvoiceStep({ job, updateJob, jobName, clientName, setClientName }) {
-  const [business, setBusiness] = useState({ name: "", contact: "", bank_details: "" });
+  const [business, setBusiness] = useState({ name: "", contact: "", bank_details: "", logo: null });
   const [copyStatus, setCopyStatus] = useState("");
+  const [logoError, setLogoError] = useState("");
 
   useEffect(() => {
     getBusinessProfile().then(setBusiness).catch(() => {});
@@ -20,6 +22,19 @@ export function InvoiceStep({ job, updateJob, jobName, clientName, setClientName
     const next = { ...business, ...patch };
     setBusiness(next);
     saveBusinessProfile(next).catch(() => {});
+  };
+
+  const handleLogoUpload = async (e) => {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = ""; // let the same file be re-picked later if needed
+    if (!file) return;
+    setLogoError("");
+    try {
+      const dataUri = await resizeImageToDataUri(file);
+      updateBusiness({ logo: dataUri });
+    } catch (err) {
+      setLogoError(err.message);
+    }
   };
 
   const {
@@ -102,6 +117,31 @@ export function InvoiceStep({ job, updateJob, jobName, clientName, setClientName
               style={{ fontFamily: "Inter", fontSize: 14, padding: "10px 12px", borderRadius: 8, border: `1px solid ${COLORS.border}`, background: "#FBFAF7", width: "100%", boxSizing: "border-box", resize: "vertical" }}
             />
           </label>
+          <div>
+            <span style={{ fontFamily: "Inter", fontSize: 12, fontWeight: 600, color: COLORS.sub, textTransform: "uppercase", letterSpacing: "0.04em" }}>
+              Logo (shown on the invoice)
+            </span>
+            <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 6 }}>
+              {business.logo && (
+                <img src={business.logo} alt="Business logo" style={{ maxHeight: 48, maxWidth: 120, borderRadius: 6, border: `1px solid ${COLORS.border}`, background: "#FBFAF7" }} />
+              )}
+              <label style={{ minHeight: 40, borderRadius: 8, border: `1px solid ${COLORS.border}`, background: "#FBFAF7", color: COLORS.ink, fontFamily: "JetBrains Mono", fontSize: 12, fontWeight: 600, cursor: "pointer", padding: "0 14px", display: "flex", alignItems: "center" }}>
+                {business.logo ? "Change logo" : "Upload logo"}
+                <input type="file" accept="image/*" onChange={handleLogoUpload} style={{ display: "none" }} />
+              </label>
+              {business.logo && (
+                <ConfirmButton
+                  onConfirm={() => updateBusiness({ logo: null })}
+                  armedLabel="Remove?"
+                  ariaLabel="Remove logo"
+                  style={{ minHeight: 40, border: "none", background: "none", color: COLORS.wasteText, cursor: "pointer", fontFamily: "JetBrains Mono", fontSize: 12, fontWeight: 600, padding: "0 8px" }}
+                >
+                  Remove
+                </ConfirmButton>
+              )}
+            </div>
+            {logoError && <p style={{ fontSize: 12, color: COLORS.wasteText, marginTop: 6, marginBottom: 0 }}>{logoError}</p>}
+          </div>
         </div>
         <p style={{ fontSize: 11, color: COLORS.sub, marginTop: 10, marginBottom: 0 }}>Saved once, reused on every job's invoice.</p>
       </section>
@@ -161,9 +201,12 @@ export function InvoiceStep({ job, updateJob, jobName, clientName, setClientName
 
       <section className="invoice-print-area" style={{ background: COLORS.panel, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 20, marginBottom: 18 }}>
         <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 16 }}>
-          <div>
-            <div style={{ fontFamily: "Space Grotesk", fontWeight: 700, fontSize: 18 }}>{business.name || "Your business"}</div>
-            {business.contact && <div style={{ fontSize: 12, color: COLORS.sub, marginTop: 2 }}>{business.contact}</div>}
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            {business.logo && <img src={business.logo} alt="" style={{ maxHeight: 44, maxWidth: 100 }} />}
+            <div>
+              <div style={{ fontFamily: "Space Grotesk", fontWeight: 700, fontSize: 18 }}>{business.name || "Your business"}</div>
+              {business.contact && <div style={{ fontSize: 12, color: COLORS.sub, marginTop: 2 }}>{business.contact}</div>}
+            </div>
           </div>
           <div style={{ textAlign: "right" }}>
             <div style={{ fontFamily: "JetBrains Mono", fontSize: 12, color: COLORS.sub }}>INVOICE {invoiceNumber || ""}</div>
