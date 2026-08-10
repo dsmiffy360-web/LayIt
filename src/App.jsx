@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { onAuthChange, signInWithEmail, signInWithGoogle, signOut, getCurrentUser } from "./lib/auth";
-import { listJobs, createJob, deleteJob, toggleArchiveJob } from "./lib/jobsApi";
+import { listJobs, createJob, duplicateJob, deleteJob, toggleArchiveJob } from "./lib/jobsApi";
 import { getSubscriptionStatus, isContractorPlan, startCheckout, openBillingPortal, FREE_TIER_JOB_LIMIT } from "./lib/subscription";
 import { computeJobInvoiceTotal } from "./lib/invoiceTotal";
 import { JobWorkspace } from "./components/JobWorkspace";
@@ -161,6 +161,16 @@ function JobList({ user, onOpenJob, subscription, setSubscription }) {
     }
   };
 
+  const handleDuplicate = async (id) => {
+    if (atFreeLimit) return;
+    try {
+      const newId = await duplicateJob(id);
+      onOpenJob(newId);
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
   const handleUpgrade = async () => {
     setUpgrading(true);
     try {
@@ -298,6 +308,7 @@ function JobList({ user, onOpenJob, subscription, setSubscription }) {
               {j.client && <div style={{ fontFamily: "Inter", fontSize: 12, color: COLORS.sub, marginTop: 2 }}>{j.client}</div>}
             </button>
             <div style={{ display: "flex", gap: 6 }}>
+              <button style={rowButtonStyle} disabled={atFreeLimit} onClick={() => handleDuplicate(j.id)} title={atFreeLimit ? `Free plan is limited to ${FREE_TIER_JOB_LIMIT} active job` : undefined}>Duplicate</button>
               <button style={rowButtonStyle} onClick={async () => {
                 try { await toggleArchiveJob(j.id, true); refresh(); } catch (err) { setError(err.message); }
               }}>Archive</button>

@@ -65,6 +65,7 @@ export async function duplicateJob(sourceJobId) {
     paymentStatus: "unpaid",
     depositAmount: "",
     status: "quote",
+    scheduledDate: "", // a copy isn't scheduled for the same date as the original
   });
 }
 
