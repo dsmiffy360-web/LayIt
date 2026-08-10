@@ -1,5 +1,5 @@
 import { COLORS } from "../../lib/colors";
-import { computeSectionLayout, computeHerringboneExact, computeChevronExact, computeBasketWeaveExact, computeDiagonalPlankExact, computeDiagonalHerringboneExact, computePinwheelExact, computeDoubleHerringboneExact, computeHexagonExact, computeVersaillesExact, computeRollGoods, computeCutTally, ROW_BASED_METHODS, UNIT_TO_CM } from "../../lib/layoutEngine";
+import { computeSectionLayout, computeHerringboneExact, computeChevronExact, computeBasketWeaveExact, computeDiagonalPlankExact, computeDiagonalHerringboneExact, computePinwheelExact, computeDoubleHerringboneExact, computeHexagonExact, computeVersaillesExact, computeRollGoods, computeCutTally, ROW_BASED_METHODS, UNIT_TO_CM, UNIT_DECIMALS } from "../../lib/layoutEngine";
 import { BlueprintDiagram } from "../diagrams/BlueprintDiagram";
 import { HerringboneExactDiagram } from "../diagrams/HerringboneExactDiagram";
 import { HerringboneExactCutList } from "../cutlists/HerringboneExactCutList";
@@ -633,6 +633,41 @@ export function ResultsStep({ job, updateJob, jobName }) {
             <span style={{ fontFamily: "JetBrains Mono", fontSize: 13, fontWeight: 600 }}>× {fullCount}</span>
           </div>
         </div>
+      </section>
+
+      <section style={{ background: COLORS.panel, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 18, marginBottom: 18 }}>
+        <div style={{ fontFamily: "Space Grotesk", fontWeight: 600, fontSize: 15, marginBottom: 4 }}>Row-by-row cut list</div>
+        <p style={{ fontSize: 12, color: COLORS.sub, marginTop: 0, marginBottom: 12 }}>
+          The batch list above groups identical cuts for efficient sawing. This shows the actual lay order instead, row by row, left to right.
+        </p>
+        {sectionResults.map((sec) => (
+          <div key={sec.id} style={{ marginBottom: 14 }}>
+            {sections.length > 1 && (
+              <div style={{ fontFamily: "JetBrains Mono", fontSize: 12, fontWeight: 600, color: COLORS.accentText, marginBottom: 6 }}>{sec.label}</div>
+            )}
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              {sec.rows.map((row, ri) => (
+                <div key={ri} style={{ display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
+                  <span style={{ fontFamily: "JetBrains Mono", fontSize: 11, fontWeight: 600, color: COLORS.sub, minWidth: 48 }}>Row {ri + 1}</span>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                    {row.pieces.map((p, pi) => (
+                      <span
+                        key={pi}
+                        style={{
+                          fontFamily: "JetBrains Mono", fontSize: 12, padding: "3px 7px", borderRadius: 4,
+                          background: p.kind === "offcut-reuse" ? "#EAF3EE" : p.kind === "full" ? "#F5EEE3" : "#FCEEEA",
+                          color: p.kind === "offcut-reuse" ? COLORS.reuse : p.kind === "full" ? COLORS.ink : COLORS.wasteText,
+                        }}
+                      >
+                        {p.length.toFixed(UNIT_DECIMALS[unit])}{unit}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
       </section>
 
       {sectionResults.map((sec, i) => (
