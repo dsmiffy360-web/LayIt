@@ -43,15 +43,15 @@ export function computePatternPreview(job) {
 
   if (layoutMethod === "herringbone") {
     if (Pl < Pw - 1e-9) return null;
-    const pieces = computeHerringboneExact(L, W, Pl, Pw, hbCentered);
+    const pieces = computeHerringboneExact(L, W, Pl, Pw, hbCentered, alcoves);
     if (!pieces) return null;
-    return { kind: "herringbone", result: { herringbonePieces: pieces, totalPlanks: pieces.length, hbCentered, L, W } };
+    return { kind: "herringbone", result: { herringbonePieces: pieces, totalPlanks: pieces.length, hbCentered, alcoves, L, W } };
   }
   if (layoutMethod === "chevron") {
     if (Pl <= Pw + 1e-9) return null;
-    const pieces = computeChevronExact(L, W, Pl, Pw, hbCentered);
+    const pieces = computeChevronExact(L, W, Pl, Pw, hbCentered, alcoves);
     if (!pieces) return null;
-    return { kind: "chevron", result: { chevronPieces: pieces, totalPlanks: pieces.length, hbCentered, L, W } };
+    return { kind: "chevron", result: { chevronPieces: pieces, totalPlanks: pieces.length, hbCentered, alcoves, L, W } };
   }
   if (layoutMethod === "basketweave") {
     const pieces = computeBasketWeaveExact(L, W, Pl, Pw);
@@ -60,26 +60,26 @@ export function computePatternPreview(job) {
   }
   if (layoutMethod === "diagonalplank" || layoutMethod === "diagonalherringbone") {
     if (layoutMethod === "diagonalherringbone" && Pl < Pw - 1e-9) return null;
-    const pieces = layoutMethod === "diagonalplank" ? computeDiagonalPlankExact(L, W, Pl, Pw, alcoves) : computeDiagonalHerringboneExact(L, W, Pl, Pw);
+    const pieces = layoutMethod === "diagonalplank" ? computeDiagonalPlankExact(L, W, Pl, Pw, alcoves) : computeDiagonalHerringboneExact(L, W, Pl, Pw, alcoves);
     if (!pieces) return null;
     return { kind: "diagonal", result: { diagonalPieces: pieces, diagonalKind: layoutMethod, totalPlanks: pieces.length, alcoves, L, W } };
   }
   if (layoutMethod === "pinwheel") {
     if (Pl <= Pw + 1e-9) return null;
-    const pieces = computePinwheelExact(L, W, Pl, Pw);
+    const pieces = computePinwheelExact(L, W, Pl, Pw, alcoves);
     if (!pieces || pieces.length === 0) return null;
-    return { kind: "pinwheel", result: { pinwheelPieces: pieces, L, W } };
+    return { kind: "pinwheel", result: { pinwheelPieces: pieces, alcoves, L, W } };
   }
   if (layoutMethod === "doubleherringbone") {
     if (Pl < Pw - 1e-9) return null;
-    const pieces = computeDoubleHerringboneExact(L, W, Pl, Pw, hbCentered);
+    const pieces = computeDoubleHerringboneExact(L, W, Pl, Pw, hbCentered, alcoves);
     if (!pieces) return null;
-    return { kind: "doubleherringbone", result: { doubleHerringbonePieces: pieces, hbCentered, L, W } };
+    return { kind: "doubleherringbone", result: { doubleHerringbonePieces: pieces, hbCentered, alcoves, L, W } };
   }
   if (layoutMethod === "hexagon") {
-    const pieces = computeHexagonExact(L, W, Pw);
+    const pieces = computeHexagonExact(L, W, Pw, alcoves);
     if (!pieces) return null;
-    return { kind: "hexagon", result: { hexagonPieces: pieces, totalPlanks: pieces.length, L, W } };
+    return { kind: "hexagon", result: { hexagonPieces: pieces, totalPlanks: pieces.length, alcoves, L, W } };
   }
   if (layoutMethod === "versailles") {
     if (Pw >= Pl - 1e-9) return null;

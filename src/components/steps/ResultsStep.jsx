@@ -190,7 +190,7 @@ export function ResultsStep({ job, updateJob, jobName }) {
       }
     }
     const hbResults = sectionNums.map((s) => {
-      const pieces = computeHerringboneExact(s.L, s.W, nums.Pl, nums.Pw, hbCentered);
+      const pieces = computeHerringboneExact(s.L, s.W, nums.Pl, nums.Pw, hbCentered, s.alcoves);
       if (!pieces) return { ...s, herringbonePieces: null };
       const totalPlanks = pieces.length;
       const usedPlanksArea = totalPlanks * nums.Pl * nums.Pw;
@@ -204,11 +204,9 @@ export function ResultsStep({ job, updateJob, jobName }) {
         </p>
       );
     }
-    const hbAlcoveSections = computeAlcoveFillSections(sectionNums, nums.Pl, nums.Pw, unit, effectiveGap);
     return (
       <>
         <HerringboneExactCutList sectionResults={hbResults} unit={unit} pieceLabel={pieceLabel} checkedPieces={checkedPieces} onBump={bump} onReset={reset} />
-        <AlcoveFillBlock alcoveSections={hbAlcoveSections} unit={unit} pieceLabel={pieceLabel} checkedPieces={checkedPieces} onBump={bump} onReset={reset} />
         {hbResults.map((sec, i) => (
           <div key={sec.id} style={{ marginBottom: 20 }}>
             <div style={{ fontFamily: "Space Grotesk", fontWeight: 600, fontSize: 16, marginBottom: 8 }}>
@@ -235,7 +233,7 @@ export function ResultsStep({ job, updateJob, jobName }) {
       }
     }
     const chevResults = sectionNums.map((s) => {
-      const pieces = computeChevronExact(s.L, s.W, nums.Pl, nums.Pw, hbCentered);
+      const pieces = computeChevronExact(s.L, s.W, nums.Pl, nums.Pw, hbCentered, s.alcoves);
       if (!pieces) return { ...s, chevronPieces: null };
       const totalPlanks = pieces.length;
       const usedPlanksArea = totalPlanks * nums.Pl * nums.Pw;
@@ -249,11 +247,9 @@ export function ResultsStep({ job, updateJob, jobName }) {
         </p>
       );
     }
-    const chevAlcoveSections = computeAlcoveFillSections(sectionNums, nums.Pl, nums.Pw, unit, effectiveGap);
     return (
       <>
         <ChevronExactCutList sectionResults={chevResults} unit={unit} pieceLabel={pieceLabel} checkedPieces={checkedPieces} onBump={bump} onReset={reset} />
-        <AlcoveFillBlock alcoveSections={chevAlcoveSections} unit={unit} pieceLabel={pieceLabel} checkedPieces={checkedPieces} onBump={bump} onReset={reset} />
         {chevResults.map((sec, i) => (
           <div key={sec.id} style={{ marginBottom: 20 }}>
             <div style={{ fontFamily: "Space Grotesk", fontWeight: 600, fontSize: 16, marginBottom: 8 }}>
@@ -323,7 +319,7 @@ export function ResultsStep({ job, updateJob, jobName }) {
     const diagResults = sectionNums.map((s) => {
       const pieces = layoutMethod === "diagonalplank"
         ? computeDiagonalPlankExact(s.L, s.W, nums.Pl, nums.Pw, s.alcoves)
-        : computeDiagonalHerringboneExact(s.L, s.W, nums.Pl, nums.Pw);
+        : computeDiagonalHerringboneExact(s.L, s.W, nums.Pl, nums.Pw, s.alcoves);
       if (!pieces) return { ...s, diagonalPieces: null };
       const totalPlanks = pieces.length;
       const usedPlanksArea = totalPlanks * nums.Pl * nums.Pw;
@@ -337,16 +333,9 @@ export function ResultsStep({ job, updateJob, jobName }) {
         </p>
       );
     }
-    // Diagonal plank now tiles straight through an alcove itself (see
-    // computeDiagonalPlankExact) so it doesn't need the generic separate-fill
-    // block — diagonal herringbone still does, until it gets the same treatment.
-    const diagAlcoveSections = layoutMethod === "diagonalherringbone"
-      ? computeAlcoveFillSections(sectionNums, nums.Pl, nums.Pw, unit, effectiveGap)
-      : [];
     return (
       <>
         <DiagonalExactCutList sectionResults={diagResults} unit={unit} pieceLabel={pieceLabel} checkedPieces={checkedPieces} onBump={bump} onReset={reset} />
-        <AlcoveFillBlock alcoveSections={diagAlcoveSections} unit={unit} pieceLabel={pieceLabel} checkedPieces={checkedPieces} onBump={bump} onReset={reset} />
         {diagResults.map((sec, i) => (
           <div key={sec.id} style={{ marginBottom: 20 }}>
             <div style={{ fontFamily: "Space Grotesk", fontWeight: 600, fontSize: 16, marginBottom: 8 }}>
@@ -373,7 +362,7 @@ export function ResultsStep({ job, updateJob, jobName }) {
       }
     }
     const pwResults = sectionNums.map((s) => {
-      const pieces = computePinwheelExact(s.L, s.W, nums.Pl, nums.Pw);
+      const pieces = computePinwheelExact(s.L, s.W, nums.Pl, nums.Pw, s.alcoves);
       const totalPlanks = pieces ? pieces.filter((p) => p.kind === "plank").length : 0;
       const totalFillers = pieces ? pieces.filter((p) => p.kind === "filler").length : 0;
       const usedPlanksArea = pieces ? pieces.reduce((sum, p) => sum + p.w * p.h, 0) : 0;
@@ -387,11 +376,9 @@ export function ResultsStep({ job, updateJob, jobName }) {
         </p>
       );
     }
-    const pwAlcoveSections = computeAlcoveFillSections(sectionNums, nums.Pl, nums.Pw, unit, effectiveGap);
     return (
       <>
         <PinwheelCutList sectionResults={pwResults} unit={unit} pieceLabel={pieceLabel} checkedPieces={checkedPieces} onBump={bump} onReset={reset} />
-        <AlcoveFillBlock alcoveSections={pwAlcoveSections} unit={unit} pieceLabel={pieceLabel} checkedPieces={checkedPieces} onBump={bump} onReset={reset} />
         {pwResults.map((sec, i) => (
           <div key={sec.id} style={{ marginBottom: 20 }}>
             <div style={{ fontFamily: "Space Grotesk", fontWeight: 600, fontSize: 16, marginBottom: 8 }}>
@@ -418,7 +405,7 @@ export function ResultsStep({ job, updateJob, jobName }) {
       }
     }
     const dhbResults = sectionNums.map((s) => {
-      const pieces = computeDoubleHerringboneExact(s.L, s.W, nums.Pl, nums.Pw, hbCentered);
+      const pieces = computeDoubleHerringboneExact(s.L, s.W, nums.Pl, nums.Pw, hbCentered, s.alcoves);
       if (!pieces) return { ...s, doubleHerringbonePieces: null };
       const totalPlanks = pieces.length;
       const usedPlanksArea = pieces.reduce((sum, p) => sum + p.w * p.h, 0);
@@ -432,11 +419,9 @@ export function ResultsStep({ job, updateJob, jobName }) {
         </p>
       );
     }
-    const dhbAlcoveSections = computeAlcoveFillSections(sectionNums, nums.Pl, nums.Pw, unit, effectiveGap);
     return (
       <>
         <DoubleHerringboneCutList sectionResults={dhbResults} unit={unit} pieceLabel={pieceLabel} checkedPieces={checkedPieces} onBump={bump} onReset={reset} />
-        <AlcoveFillBlock alcoveSections={dhbAlcoveSections} unit={unit} pieceLabel={pieceLabel} checkedPieces={checkedPieces} onBump={bump} onReset={reset} />
         {dhbResults.map((sec, i) => (
           <div key={sec.id} style={{ marginBottom: 20 }}>
             <div style={{ fontFamily: "Space Grotesk", fontWeight: 600, fontSize: 16, marginBottom: 8 }}>
@@ -462,7 +447,7 @@ export function ResultsStep({ job, updateJob, jobName }) {
     }
     const hexAreaEst = ((3 * Math.sqrt(3)) / 2) * (nums.Pw / Math.sqrt(3)) * (nums.Pw / Math.sqrt(3));
     const hexResults = sectionNums.map((s) => {
-      const pieces = computeHexagonExact(s.L, s.W, nums.Pw);
+      const pieces = computeHexagonExact(s.L, s.W, nums.Pw, s.alcoves);
       if (!pieces) return { ...s, hexagonPieces: null };
       const totalPlanks = pieces.length;
       const usedPlanksArea = pieces.reduce((sum, p) => sum + p.area, 0);
@@ -476,11 +461,9 @@ export function ResultsStep({ job, updateJob, jobName }) {
         </p>
       );
     }
-    const hexAlcoveSections = computeAlcoveFillSections(sectionNums, nums.Pl, nums.Pw, unit, effectiveGap);
     return (
       <>
         <HexagonSummary sectionResults={hexResults} pieceLabel={pieceLabel} />
-        <AlcoveFillBlock alcoveSections={hexAlcoveSections} unit={unit} pieceLabel={pieceLabel} checkedPieces={checkedPieces} onBump={bump} onReset={reset} />
         {hexResults.map((sec, i) => (
           <div key={sec.id} style={{ marginBottom: 20 }}>
             <div style={{ fontFamily: "Space Grotesk", fontWeight: 600, fontSize: 16, marginBottom: 8 }}>

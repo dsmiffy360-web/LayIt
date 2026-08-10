@@ -18,18 +18,22 @@ function seededRandom(seed) {
   };
 }
 
-function computeHerringboneExact(roomL, roomW, Pl, Pw, centered) {
+function computeHerringboneExact(roomL, roomW, Pl, Pw, centered, alcoves = []) {
   const W = Pw, L = Pl;
   if (L < W - 1e-9) return null; // length must be at least the width
 
-  const kSpan = Math.ceil((roomL + roomW) / W) + 4;
-  const xSpanNeeded = roomL + 2 * kSpan * W + 2 * L;
+  const alcoveRects = alcoveRectsFor(roomL, alcoves);
+  const { minX, maxX, minY, maxY } = effectiveBounds(roomL, roomW, alcoveRects);
+  const effSpan = (maxX - minX) + (maxY - minY);
+
+  const kSpan = Math.ceil(effSpan / W) + 4;
+  const xSpanNeeded = (maxX - minX) + 2 * kSpan * W + 2 * L;
   const stepsOneSide = Math.ceil((2 * xSpanNeeded) / L) + 8;
 
   // Safety cap: a small plank width relative to a large room blows this grid
   // up fast. Bail out to the estimate rather than ever risk freezing the tab
   // on a pathological input.
-  const estimatedWork = 2 * stepsOneSide * (2 * kSpan + 1);
+  const estimatedWork = 2 * stepsOneSide * (2 * kSpan + 1) * (1 + alcoveRects.length);
   if (!isFinite(estimatedWork) || estimatedWork > 800000) {
     return null;
   }
@@ -61,13 +65,20 @@ function computeHerringboneExact(roomL, roomW, Pl, Pw, centered) {
     const dx = k * W, dy = -k * W;
     for (const p of base) {
       const px = p.x + dx, py = p.y + dy;
-      if (px + p.w < 0 || px > roomL || py + p.h < 0 || py > roomW) continue;
-      const ix0 = Math.max(px, 0), iy0 = Math.max(py, 0);
-      const ix1 = Math.min(px + p.w, roomL), iy1 = Math.min(py + p.h, roomW);
-      const iw = ix1 - ix0, ih = iy1 - iy0;
-      if (iw > 1e-9 && ih > 1e-9) {
-        const full = Math.abs(iw - p.w) < 1e-6 && Math.abs(ih - p.h) < 1e-6;
-        pieces.push({ x: ix0, y: iy0, w: iw, h: ih, full, origW: p.w, origH: p.h });
+      if (px + p.w < minX || px > maxX || py + p.h < minY || py > maxY) continue;
+
+      const main = clipRectToBounds(px, py, p.w, p.h, 0, 0, roomL, roomW);
+      if (main) {
+        const full = Math.abs(main.w - p.w) < 1e-6 && Math.abs(main.h - p.h) < 1e-6;
+        pieces.push({ x: main.x, y: main.y, w: main.w, h: main.h, full, origW: p.w, origH: p.h });
+      }
+
+      for (const rect of alcoveRects) {
+        const clipped = clipRectToBounds(px, py, p.w, p.h, rect.x0, rect.y0, rect.x1, rect.y1);
+        if (clipped) {
+          const full = Math.abs(clipped.w - p.w) < 1e-6 && Math.abs(clipped.h - p.h) < 1e-6;
+          pieces.push({ x: clipped.x, y: clipped.y, w: clipped.w, h: clipped.h, full, origW: p.w, origH: p.h, inAlcove: true });
+        }
       }
     }
   }
@@ -116,10 +127,12 @@ function clipPolyToRect(poly, x0, y0, x1, y1) {
   return output;
 }
 
-function computeChevronExact(roomL, roomW, Lraw, W, centered) {
+function computeChevronExact(roomL, roomW, Lraw, W, centered, alcoves = []) {
   const Lp = Lraw - W;
   if (Lp <= 0) return null;
   const d = 1 / Math.sqrt(2);
+  const alcoveRects = alcoveRectsFor(roomL, alcoves);
+  const { minX, maxX, minY, maxY } = effectiveBounds(roomL, roomW, alcoveRects);
   const makeA = (x0, y0) => [[x0, y0], [x0 + Lp * d, y0 + Lp * d], [x0 + Lp * d, y0 + Lp * d + W * Math.SQRT2], [x0, y0 + W * Math.SQRT2]];
   const makeB = (x0, y0) => [[x0, y0], [x0 + Lp * d, y0 - Lp * d], [x0 + Lp * d, y0 - Lp * d + W * Math.SQRT2], [x0, y0 + W * Math.SQRT2]];
 
@@ -152,7 +165,7 @@ function computeChevronExact(roomL, roomW, Lraw, W, centered) {
     return { bottom, top };
   }
 
-  const diag = roomL + roomW;
+  const diag = (maxX - minX) + (maxY - minY);
   const dy = W * Math.SQRT2;
 
   // Build the list of (kind, x, y) starting points for one row — either
@@ -162,7 +175,7 @@ function computeChevronExact(roomL, roomW, Lraw, W, centered) {
   if (centered) {
     const nEach = Math.ceil(diag / (Lp * d)) + 10;
     const nRows = Math.ceil(diag / dy) + 10;
-    const estimatedWork = (2 * nRows + 1) * (2 * nEach + 1);
+    const estimatedWork = (2 * nRows + 1) * (2 * nEach + 1) * (1 + alcoveRects.length);
     if (!isFinite(estimatedWork) || estimatedWork > 400000) return null;
 
     // Seed so the seam edge (the vertical seam between the seed piece and
@@ -193,13 +206,26 @@ function computeChevronExact(roomL, roomW, Lraw, W, centered) {
         const y0 = sy + ry;
         const p = kind2 === "A" ? makeA(sx, y0) : makeB(sx, y0);
         const xs = p.map((q) => q[0]), ys = p.map((q) => q[1]);
-        if (Math.max(...xs) < 0 || Math.min(...xs) > roomL || Math.max(...ys) < 0 || Math.min(...ys) > roomW) continue;
+        if (Math.max(...xs) < minX || Math.min(...xs) > maxX || Math.max(...ys) < minY || Math.min(...ys) > maxY) continue;
+
         const clipped = clipPolyToRect(p, 0, 0, roomL, roomW);
         if (clipped.length >= 3) {
           const area = shoelaceArea(clipped);
-          const full = Math.abs(area - Lp * W) < 1e-6;
-          const cutSpec = full ? null : extractCutSpec(clipped, sx, y0, kind2);
-          pieces.push({ poly: clipped, area, full, kind: kind2, cutSpec });
+          if (area >= 1e-6) {
+            const full = Math.abs(area - Lp * W) < 1e-6;
+            const cutSpec = full ? null : extractCutSpec(clipped, sx, y0, kind2);
+            pieces.push({ poly: clipped, area, full, kind: kind2, cutSpec });
+          }
+        }
+
+        for (const rect of alcoveRects) {
+          const clippedA = clipPolyToRect(p, rect.x0, rect.y0, rect.x1, rect.y1);
+          if (clippedA.length < 3) continue;
+          const areaA = shoelaceArea(clippedA);
+          if (areaA < 1e-6) continue;
+          const fullA = Math.abs(areaA - Lp * W) < 1e-6;
+          const cutSpecA = fullA ? null : extractCutSpec(clippedA, sx, y0, kind2);
+          pieces.push({ poly: clippedA, area: areaA, full: fullA, kind: kind2, cutSpec: cutSpecA, inAlcove: true });
         }
       }
     }
@@ -212,7 +238,7 @@ function computeChevronExact(roomL, roomW, Lraw, W, centered) {
 
   // Safety cap, same reasoning as herringbone's — bail to the estimate
   // rather than ever risk freezing the tab on a pathological input.
-  const estimatedWork = (2 * nRows + 1) * nPieces;
+  const estimatedWork = (2 * nRows + 1) * nPieces * (1 + alcoveRects.length);
   if (!isFinite(estimatedWork) || estimatedWork > 400000) return null;
 
   const pieces = [];
@@ -225,13 +251,26 @@ function computeChevronExact(roomL, roomW, Lraw, W, centered) {
       if (kind === "A") { p = makeA(x, y); x = p[1][0]; y = p[1][1]; kind = "B"; }
       else { p = makeB(x, y); x = p[1][0]; y = p[1][1]; kind = "A"; }
       const xs = p.map((q) => q[0]), ys = p.map((q) => q[1]);
-      if (Math.max(...xs) < 0 || Math.min(...xs) > roomL || Math.max(...ys) < 0 || Math.min(...ys) > roomW) continue;
+      if (Math.max(...xs) < minX || Math.min(...xs) > maxX || Math.max(...ys) < minY || Math.min(...ys) > maxY) continue;
+
       const clipped = clipPolyToRect(p, 0, 0, roomL, roomW);
       if (clipped.length >= 3) {
         const area = shoelaceArea(clipped);
-        const full = Math.abs(area - Lp * W) < 1e-6;
-        const cutSpec = full ? null : extractCutSpec(clipped, pieceX0, pieceY0, pieceKind);
-        pieces.push({ poly: clipped, area, full, kind: pieceKind, cutSpec });
+        if (area >= 1e-6) {
+          const full = Math.abs(area - Lp * W) < 1e-6;
+          const cutSpec = full ? null : extractCutSpec(clipped, pieceX0, pieceY0, pieceKind);
+          pieces.push({ poly: clipped, area, full, kind: pieceKind, cutSpec });
+        }
+      }
+
+      for (const rect of alcoveRects) {
+        const clippedA = clipPolyToRect(p, rect.x0, rect.y0, rect.x1, rect.y1);
+        if (clippedA.length < 3) continue;
+        const areaA = shoelaceArea(clippedA);
+        if (areaA < 1e-6) continue;
+        const fullA = Math.abs(areaA - Lp * W) < 1e-6;
+        const cutSpecA = fullA ? null : extractCutSpec(clippedA, pieceX0, pieceY0, pieceKind);
+        pieces.push({ poly: clippedA, area: areaA, full: fullA, kind: pieceKind, cutSpec: cutSpecA, inAlcove: true });
       }
     }
   }
@@ -307,6 +346,29 @@ function alcoveRectsFor(roomL, alcoves) {
       : { x0: roomL, y0: a.offset, x1: roomL + a.depth, y1: a.offset + a.span }));
 }
 
+// The bounding box of the room plus every alcove — how far a candidate-
+// piece sweep needs to reach before clipping, shared by every pattern that
+// supports alcove continuation.
+function effectiveBounds(roomL, roomW, alcoveRects) {
+  return {
+    minX: Math.min(0, ...alcoveRects.map((r) => r.x0)),
+    maxX: Math.max(roomL, ...alcoveRects.map((r) => r.x1)),
+    minY: Math.min(0, ...alcoveRects.map((r) => r.y0)),
+    maxY: Math.max(roomW, ...alcoveRects.map((r) => r.y1)),
+  };
+}
+
+// Axis-aligned rect-vs-rect clip, for the patterns whose pieces are plain
+// (unrotated) rectangles — simpler than clipPolyToRect since there's no
+// polygon to walk, just an intersection.
+function clipRectToBounds(x, y, w, h, x0, y0, x1, y1) {
+  const ix0 = Math.max(x, x0), iy0 = Math.max(y, y0);
+  const ix1 = Math.min(x + w, x1), iy1 = Math.min(y + h, y1);
+  const iw = ix1 - ix0, ih = iy1 - iy0;
+  if (iw <= 1e-9 || ih <= 1e-9) return null;
+  return { x: ix0, y: iy0, w: iw, h: ih };
+}
+
 function computeDiagonalPlankExact(roomL, roomW, Pl, Pw, alcoves = []) {
   const d = 1 / Math.sqrt(2);
   const makePlank = (x0, y0) => [[x0, y0], [x0 + Pl * d, y0 + Pl * d], [x0 + Pl * d - Pw * d, y0 + Pl * d + Pw * d], [x0 - Pw * d, y0 + Pw * d]];
@@ -360,14 +422,16 @@ function computeDiagonalPlankExact(roomL, roomW, Pl, Pw, alcoves = []) {
   return pieces;
 }
 
-function computeDiagonalHerringboneExact(roomL, roomW, Pl, Pw) {
+function computeDiagonalHerringboneExact(roomL, roomW, Pl, Pw, alcoves = []) {
   if (Pl < Pw - 1e-9) return null;
-  const span = roomL + roomW;
+  const alcoveRects = alcoveRectsFor(roomL, alcoves);
+  const { minX, maxX, minY, maxY } = effectiveBounds(roomL, roomW, alcoveRects);
+  const span = (maxX - minX) + (maxY - minY);
   const kSpan = Math.ceil(span / Pw) + 4;
   const xSpanNeeded = span + 2 * kSpan * Pw + 2 * Pl;
   const stepsOneSide = Math.ceil((2 * xSpanNeeded) / Pl) + 8;
 
-  const estimatedWork = stepsOneSide * (2 * kSpan + 1);
+  const estimatedWork = stepsOneSide * (2 * kSpan + 1) * (1 + alcoveRects.length);
   if (!isFinite(estimatedWork) || estimatedWork > 400000) return null;
 
   const base = [{ x: 0, y: 0, w: Pl, h: Pw, kind: "H" }];
@@ -399,33 +463,50 @@ function computeDiagonalHerringboneExact(roomL, roomW, Pl, Pw) {
       const roomRect = localRect.map(([px, py]) => rot(px, py));
       const roomX0y0 = rot(lx, ly);
       const xs = roomRect.map((q) => q[0]), ys = roomRect.map((q) => q[1]);
-      if (Math.max(...xs) < 0 || Math.min(...xs) > roomL || Math.max(...ys) < 0 || Math.min(...ys) > roomW) continue;
+      if (Math.max(...xs) < minX || Math.min(...xs) > maxX || Math.max(...ys) < minY || Math.min(...ys) > maxY) continue;
+
+      const dim = t.kind === "H" ? t.h : t.w;
       const clipped = clipPolyToRect(roomRect, 0, 0, roomL, roomW);
       if (clipped.length >= 3) {
         const area = shoelaceArea(clipped);
-        if (area < 1e-6) continue; // discard degenerate boundary slivers
-        const full = Math.abs(area - t.w * t.h) < 1e-6;
-        const dim = t.kind === "H" ? t.h : t.w;
-        const cutSpec = full ? null : extractDiagonalCutSpec(clipped, roomX0y0[0], roomX0y0[1], t.kind, dim);
-        pieces.push({ poly: clipped, area, full, cutSpec });
+        if (area >= 1e-6) {
+          const full = Math.abs(area - t.w * t.h) < 1e-6;
+          const cutSpec = full ? null : extractDiagonalCutSpec(clipped, roomX0y0[0], roomX0y0[1], t.kind, dim);
+          pieces.push({ poly: clipped, area, full, cutSpec });
+        }
+      }
+
+      for (const rect of alcoveRects) {
+        const clippedA = clipPolyToRect(roomRect, rect.x0, rect.y0, rect.x1, rect.y1);
+        if (clippedA.length < 3) continue;
+        const areaA = shoelaceArea(clippedA);
+        if (areaA < 1e-6) continue;
+        const fullA = Math.abs(areaA - t.w * t.h) < 1e-6;
+        const cutSpecA = fullA ? null : extractDiagonalCutSpec(clippedA, roomX0y0[0], roomX0y0[1], t.kind, dim);
+        pieces.push({ poly: clippedA, area: areaA, full: fullA, cutSpec: cutSpecA, inAlcove: true });
       }
     }
   }
   return pieces;
 }
 
-function computePinwheelExact(roomL, roomW, Pl, Pw) {
+function computePinwheelExact(roomL, roomW, Pl, Pw, alcoves = []) {
   if (Pl <= Pw + 1e-9) return null;
   const S = Pl + Pw;
   const centerSide = Pl - Pw;
-  const nBlocksX = Math.ceil(roomL / S);
-  const nBlocksY = Math.ceil(roomW / S);
-  const estimatedWork = nBlocksX * nBlocksY * 5;
+  const alcoveRects = alcoveRectsFor(roomL, alcoves);
+  const { minX, maxX, minY, maxY } = effectiveBounds(roomL, roomW, alcoveRects);
+  // Pinwheel blocks are identical regardless of grid position (unlike basket
+  // weave, no alternating orientation to continue) so extending the grid to
+  // negative/beyond-roomL indices is just widening the loop bounds.
+  const minBx = Math.floor(minX / S) - 1, maxBx = Math.ceil(maxX / S) + 1;
+  const minBy = Math.floor(minY / S) - 1, maxBy = Math.ceil(maxY / S) + 1;
+  const estimatedWork = (maxBx - minBx) * (maxBy - minBy) * 5 * (1 + alcoveRects.length);
   if (!isFinite(estimatedWork) || estimatedWork > 400000) return null;
 
   const pieces = [];
-  for (let bx = 0; bx < nBlocksX; bx++) {
-    for (let by = 0; by < nBlocksY; by++) {
+  for (let bx = minBx; bx < maxBx; bx++) {
+    for (let by = minBy; by < maxBy; by++) {
       const ox = bx * S, oy = by * S;
       const block = [
         { kind: "plank", x: ox, y: oy, w: Pl, h: Pw },
@@ -435,11 +516,15 @@ function computePinwheelExact(roomL, roomW, Pl, Pw) {
         { kind: "filler", x: ox + Pw, y: oy + Pw, w: centerSide, h: centerSide },
       ];
       for (const b of block) {
-        const cx0 = Math.max(b.x, 0), cy0 = Math.max(b.y, 0);
-        const cx1 = Math.min(b.x + b.w, roomL), cy1 = Math.min(b.y + b.h, roomW);
-        const cw = cx1 - cx0, ch = cy1 - cy0;
-        if (cw > 1e-9 && ch > 1e-9) {
-          pieces.push({ x: cx0, y: cy0, w: cw, h: ch, kind: b.kind, full: Math.abs(cw - b.w) < 1e-6 && Math.abs(ch - b.h) < 1e-6 });
+        const main = clipRectToBounds(b.x, b.y, b.w, b.h, 0, 0, roomL, roomW);
+        if (main) {
+          pieces.push({ x: main.x, y: main.y, w: main.w, h: main.h, kind: b.kind, full: Math.abs(main.w - b.w) < 1e-6 && Math.abs(main.h - b.h) < 1e-6 });
+        }
+        for (const rect of alcoveRects) {
+          const clipped = clipRectToBounds(b.x, b.y, b.w, b.h, rect.x0, rect.y0, rect.x1, rect.y1);
+          if (clipped) {
+            pieces.push({ x: clipped.x, y: clipped.y, w: clipped.w, h: clipped.h, kind: b.kind, full: Math.abs(clipped.w - b.w) < 1e-6 && Math.abs(clipped.h - b.h) < 1e-6, inAlcove: true });
+          }
         }
       }
     }
@@ -447,18 +532,20 @@ function computePinwheelExact(roomL, roomW, Pl, Pw) {
   return pieces;
 }
 
-function computeDoubleHerringboneExact(roomL, roomW, Pl, Pw, centered) {
+function computeDoubleHerringboneExact(roomL, roomW, Pl, Pw, centered, alcoves = []) {
   if (Pl < Pw - 1e-9) return null;
-  const diag = roomL + roomW;
+  const alcoveRects = alcoveRectsFor(roomL, alcoves);
+  const { minX, maxX, minY, maxY } = effectiveBounds(roomL, roomW, alcoveRects);
+  const diag = (maxX - minX) + (maxY - minY);
   const dy = Pw;
 
   let starts;
   if (centered) {
     const nEach = Math.ceil(diag / (Pl - Pw + Pw)) + 10; // same spirit as herringbone's stepsOneSide, simplified
     const kSpan = Math.ceil(diag / Pw) + 4;
-    const xSpanNeeded = roomL + 2 * kSpan * Pw + 2 * Pl;
+    const xSpanNeeded = (maxX - minX) + 2 * kSpan * Pw + 2 * Pl;
     const stepsOneSide = Math.ceil((2 * xSpanNeeded) / Pl) + 8;
-    const estimatedWork = 2 * stepsOneSide * (2 * kSpan + 1) * 2;
+    const estimatedWork = 2 * stepsOneSide * (2 * kSpan + 1) * 2 * (1 + alcoveRects.length);
     if (!isFinite(estimatedWork) || estimatedWork > 400000) return null;
 
     const seedX = roomL / 2 - Pl / 2, seedY = roomW / 2 - Pw / 2;
@@ -484,9 +571,9 @@ function computeDoubleHerringboneExact(roomL, roomW, Pl, Pw, centered) {
     }
   } else {
     const kSpan = Math.ceil(diag / Pw) + 4;
-    const xSpanNeeded = roomL + 2 * kSpan * Pw + 2 * Pl;
+    const xSpanNeeded = (maxX - minX) + 2 * kSpan * Pw + 2 * Pl;
     const nPieces = Math.ceil((2 * xSpanNeeded) / Pl) + 8;
-    const estimatedWork = nPieces * (2 * kSpan + 1) * 2;
+    const estimatedWork = nPieces * (2 * kSpan + 1) * 2 * (1 + alcoveRects.length);
     if (!isFinite(estimatedWork) || estimatedWork > 400000) return null;
 
     const startX = -(kSpan * Pw + Pl), startY = -(kSpan * Pw + Pl);
@@ -510,19 +597,25 @@ function computeDoubleHerringboneExact(roomL, roomW, Pl, Pw, centered) {
       ? [{ x: t.x, y: t.y, w: t.w / 2, h: t.h }, { x: t.x + t.w / 2, y: t.y, w: t.w / 2, h: t.h }]
       : [{ x: t.x, y: t.y, w: t.w, h: t.h / 2 }, { x: t.x, y: t.y + t.h / 2, w: t.w, h: t.h / 2 }];
     for (const s of subs) {
-      if (s.x + s.w < 0 || s.x > roomL || s.y + s.h < 0 || s.y > roomW) continue;
-      const cx0 = Math.max(s.x, 0), cy0 = Math.max(s.y, 0);
-      const cx1 = Math.min(s.x + s.w, roomL), cy1 = Math.min(s.y + s.h, roomW);
-      const cw = cx1 - cx0, ch = cy1 - cy0;
-      if (cw > 1e-9 && ch > 1e-9) {
-        pieces.push({ x: cx0, y: cy0, w: cw, h: ch, full: Math.abs(cw - s.w) < 1e-6 && Math.abs(ch - s.h) < 1e-6 });
+      if (s.x + s.w < minX || s.x > maxX || s.y + s.h < minY || s.y > maxY) continue;
+
+      const main = clipRectToBounds(s.x, s.y, s.w, s.h, 0, 0, roomL, roomW);
+      if (main) {
+        pieces.push({ x: main.x, y: main.y, w: main.w, h: main.h, full: Math.abs(main.w - s.w) < 1e-6 && Math.abs(main.h - s.h) < 1e-6 });
+      }
+
+      for (const rect of alcoveRects) {
+        const clipped = clipRectToBounds(s.x, s.y, s.w, s.h, rect.x0, rect.y0, rect.x1, rect.y1);
+        if (clipped) {
+          pieces.push({ x: clipped.x, y: clipped.y, w: clipped.w, h: clipped.h, full: Math.abs(clipped.w - s.w) < 1e-6 && Math.abs(clipped.h - s.h) < 1e-6, inAlcove: true });
+        }
       }
     }
   }
   return pieces;
 }
 
-function computeHexagonExact(roomL, roomW, flatToFlat) {
+function computeHexagonExact(roomL, roomW, flatToFlat, alcoves = []) {
   if (flatToFlat <= 0) return null;
   const r = flatToFlat / Math.sqrt(3);
   const hexAt = (cx, cy) => {
@@ -533,12 +626,14 @@ function computeHexagonExact(roomL, roomW, flatToFlat) {
     }
     return pts;
   };
+  const alcoveRects = alcoveRectsFor(roomL, alcoves);
+  const { minX, maxX, minY, maxY } = effectiveBounds(roomL, roomW, alcoveRects);
   const dx = flatToFlat, dyRow = r * 1.5;
-  const diag = roomL + roomW;
+  const diag = (maxX - minX) + (maxY - minY);
   const nCols = Math.ceil(diag / dx) + 4;
   const nRows = Math.ceil(diag / dyRow) + 4;
 
-  const estimatedWork = (2 * nRows + 1) * (2 * nCols + 1);
+  const estimatedWork = (2 * nRows + 1) * (2 * nCols + 1) * (1 + alcoveRects.length);
   if (!isFinite(estimatedWork) || estimatedWork > 400000) return null;
 
   const hexArea = ((3 * Math.sqrt(3)) / 2) * r * r;
@@ -550,13 +645,24 @@ function computeHexagonExact(roomL, roomW, flatToFlat) {
       const cx = col * dx + rowOffset;
       const hp = hexAt(cx, cy);
       const xs = hp.map((p) => p[0]), ys = hp.map((p) => p[1]);
-      if (Math.max(...xs) < 0 || Math.min(...xs) > roomL || Math.max(...ys) < 0 || Math.min(...ys) > roomW) continue;
+      if (Math.max(...xs) < minX || Math.min(...xs) > maxX || Math.max(...ys) < minY || Math.min(...ys) > maxY) continue;
+
       const clipped = clipPolyToRect(hp, 0, 0, roomL, roomW);
       if (clipped.length >= 3) {
         const area = shoelaceArea(clipped);
-        if (area < 1e-6) continue;
-        const full = Math.abs(area - hexArea) < 1e-6;
-        pieces.push({ poly: clipped, area, full });
+        if (area >= 1e-6) {
+          const full = Math.abs(area - hexArea) < 1e-6;
+          pieces.push({ poly: clipped, area, full });
+        }
+      }
+
+      for (const rect of alcoveRects) {
+        const clippedA = clipPolyToRect(hp, rect.x0, rect.y0, rect.x1, rect.y1);
+        if (clippedA.length < 3) continue;
+        const areaA = shoelaceArea(clippedA);
+        if (areaA < 1e-6) continue;
+        const fullA = Math.abs(areaA - hexArea) < 1e-6;
+        pieces.push({ poly: clippedA, area: areaA, full: fullA, inAlcove: true });
       }
     }
   }

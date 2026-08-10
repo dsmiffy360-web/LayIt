@@ -9,9 +9,18 @@ export function HerringboneExactDiagram({ result, L, W, unit, pieceLabel = "Plan
   const scale = virtualW / L;
   const drawW = L * scale;
   const drawH = W * scale;
-  const svgW = drawW + padL + padR;
-  const svgH = drawH + padT + padB + 24;
   const pieces = result.herringbonePieces || [];
+  // Alcove pieces sit outside the room's 0..L range — extend the canvas so
+  // they're visible instead of clipped off, and shift everything right by
+  // nearDepth so a near-wall alcove's negative x still lands on-canvas.
+  const validAlcoves = (result.alcoves || []).filter((a) => a.span > 0 && a.depth > 0);
+  const nearDepth = Math.max(0, ...validAlcoves.filter((a) => a.wall === "near").map((a) => a.depth));
+  const farDepth = Math.max(0, ...validAlcoves.filter((a) => a.wall !== "near").map((a) => a.depth));
+  const extraL = nearDepth * scale, extraR = farDepth * scale;
+  const svgW = drawW + extraL + extraR + padL + padR;
+  const svgH = drawH + padT + padB + 24;
+  const px = (x) => padL + extraL + x * scale;
+  const py = (y) => padT + y * scale;
 
   return (
     <section style={{ background: COLORS.blueprint, borderRadius: 10, padding: "14px 12px 18px", marginBottom: 12 }}>
@@ -20,41 +29,42 @@ export function HerringboneExactDiagram({ result, L, W, unit, pieceLabel = "Plan
       </div>
       <svg ref={svgRef} viewBox={`0 0 ${svgW} ${svgH}`} width="100%" height="auto" style={{ display: "block" }} preserveAspectRatio="xMidYMid meet" role="img" aria-labelledby="hb-diagram-title">
         <title id="hb-diagram-title">Exact herringbone tiling for a {L}{unit} by {W}{unit} room, {result.totalPlanks} planks</title>
-        <line x1={padL} y1={14} x2={padL + drawW} y2={14} stroke={COLORS.chalkDim} strokeWidth="1" />
-        <text x={padL + drawW / 2} y={10} fill={COLORS.chalk} fontSize="11" fontFamily="JetBrains Mono" textAnchor="middle">
+        <line x1={px(0)} y1={14} x2={px(L)} y2={14} stroke={COLORS.chalkDim} strokeWidth="1" />
+        <text x={px(L / 2)} y={10} fill={COLORS.chalk} fontSize="11" fontFamily="JetBrains Mono" textAnchor="middle">
           {L}{unit}
         </text>
         <text
           x={14}
-          y={padT + drawH / 2}
+          y={py(W / 2)}
           fill={COLORS.chalk}
           fontSize="11"
           fontFamily="JetBrains Mono"
           textAnchor="middle"
-          transform={`rotate(-90 14 ${padT + drawH / 2})`}
+          transform={`rotate(-90 14 ${py(W / 2)})`}
         >
           {W}{unit}
         </text>
         {pieces.map((p, i) => (
           <rect
             key={i}
-            x={padL + p.x * scale}
-            y={padT + p.y * scale}
+            x={px(p.x)}
+            y={py(p.y)}
             width={Math.max(p.w * scale - 0.5, 0)}
             height={Math.max(p.h * scale - 0.5, 0)}
             fill={p.full ? (i % 2 === 0 ? COLORS.wood1 : COLORS.wood2) : COLORS.waste}
             stroke={COLORS.blueprint}
             strokeWidth="0.5"
+            opacity={p.inAlcove ? 0.85 : 1}
           />
         ))}
-        <rect x={padL} y={padT} width={drawW} height={drawH} fill="none" stroke={COLORS.chalk} strokeWidth="1.5" />
+        <rect x={px(0)} y={py(0)} width={drawW} height={drawH} fill="none" stroke={COLORS.chalk} strokeWidth="1.5" />
         {result.hbCentered && (
           <g>
-            <line x1={padL + drawW / 2 - 6} y1={padT + drawH / 2} x2={padL + drawW / 2 + 6} y2={padT + drawH / 2} stroke={COLORS.chalk} strokeWidth="1.5" />
-            <line x1={padL + drawW / 2} y1={padT + drawH / 2 - 6} x2={padL + drawW / 2} y2={padT + drawH / 2 + 6} stroke={COLORS.chalk} strokeWidth="1.5" />
+            <line x1={px(L / 2) - 6} y1={py(W / 2)} x2={px(L / 2) + 6} y2={py(W / 2)} stroke={COLORS.chalk} strokeWidth="1.5" />
+            <line x1={px(L / 2)} y1={py(W / 2) - 6} x2={px(L / 2)} y2={py(W / 2) + 6} stroke={COLORS.chalk} strokeWidth="1.5" />
           </g>
         )}
-        <g transform={`translate(${padL}, ${padT + drawH + 14})`}>
+        <g transform={`translate(${px(0)}, ${py(0) + drawH + 14})`}>
           {[
             [COLORS.wood1, "Full plank"],
             [COLORS.waste, "Cut at perimeter"],
@@ -66,6 +76,11 @@ export function HerringboneExactDiagram({ result, L, W, unit, pieceLabel = "Plan
           ))}
         </g>
       </svg>
+      {validAlcoves.length > 0 && (
+        <p style={{ fontSize: 11, color: COLORS.chalk, marginTop: 8, marginBottom: 0, fontFamily: "Inter" }}>
+          Pieces shown outside the {L}{unit} × {W}{unit} outline continue the same herringbone pattern straight into an alcove.
+        </p>
+      )}
       <button
         onClick={() => exportSvgAsPng(svgRef.current, `${sectionLabel.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}-layout.png`, COLORS.blueprint)}
         style={{

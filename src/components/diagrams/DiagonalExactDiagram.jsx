@@ -11,13 +11,10 @@ export function DiagonalExactDiagram({ result, L, W, unit, pieceLabel = "Plank",
   const drawH = W * scale;
   const pieces = result.diagonalPieces || [];
   const isPlank = result.diagonalKind === "diagonalplank";
-  // Alcove pieces (diagonal plank only, see computeDiagonalPlankExact) sit
-  // outside the room's 0..L range — extend the canvas so they're visible
-  // instead of clipped off, and shift everything right by nearDepth so a
-  // near-wall alcove's negative x still lands on-canvas. Diagonal herringbone
-  // doesn't generate these pieces yet (still uses the separate alcove-fill
-  // block elsewhere on the page), so it gets none of this canvas expansion.
-  const validAlcoves = isPlank ? (result.alcoves || []).filter((a) => a.span > 0 && a.depth > 0) : [];
+  // Alcove pieces sit outside the room's 0..L range — extend the canvas so
+  // they're visible instead of clipped off, and shift everything right by
+  // nearDepth so a near-wall alcove's negative x still lands on-canvas.
+  const validAlcoves = (result.alcoves || []).filter((a) => a.span > 0 && a.depth > 0);
   const nearDepth = Math.max(0, ...validAlcoves.filter((a) => a.wall === "near").map((a) => a.depth));
   const farDepth = Math.max(0, ...validAlcoves.filter((a) => a.wall !== "near").map((a) => a.depth));
   const extraL = nearDepth * scale, extraR = farDepth * scale;

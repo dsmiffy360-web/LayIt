@@ -8,6 +8,7 @@ export function PinwheelDiagram({ result, L, W, unit, pieceLabel = "Plank", sect
       L={L} W={W} unit={unit} pieceLabel={pieceLabel} sectionLabel={sectionLabel}
       label="pinwheel"
       colorFn={(p) => (p.kind === "filler" ? COLORS.accent : COLORS.wood1)}
+      alcoves={result.alcoves}
     />
   );
 }

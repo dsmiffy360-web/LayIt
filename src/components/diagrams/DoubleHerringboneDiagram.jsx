@@ -8,6 +8,7 @@ export function DoubleHerringboneDiagram({ result, L, W, unit, pieceLabel = "Pla
       L={L} W={W} unit={unit} pieceLabel={pieceLabel} sectionLabel={sectionLabel}
       label={`double herringbone, ${result.hbCentered ? "centered" : "corner"} start`}
       colorFn={(p, i) => (i % 2 === 0 ? COLORS.wood1 : COLORS.wood2)}
+      alcoves={result.alcoves}
     />
   );
 }
