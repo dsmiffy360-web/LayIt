@@ -305,6 +305,23 @@ function JobList({ user, onOpenJob, subscription, setSubscription }) {
           Summary
         </h1>
 
+        {!onContractorPlan ? (
+          <section style={{ background: COLORS.panel, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: 24, textAlign: "center" }}>
+            <div style={{ fontFamily: "Space Grotesk", fontWeight: 600, fontSize: 16, marginBottom: 8 }}>Summary is a Contractor feature</div>
+            <p style={{ fontSize: 13, color: COLORS.sub, margin: "0 0 18px", lineHeight: 1.5 }}>
+              Revenue tracking, the monthly breakdown for tax records, outstanding balances, and the job pipeline are
+              part of the Contractor plan. Start a 7-day free trial to unlock them.
+            </p>
+            <button
+              onClick={handleUpgrade}
+              disabled={upgrading}
+              style={{ minHeight: 48, borderRadius: 8, border: "none", background: `linear-gradient(135deg, ${COLORS.wood1}, ${COLORS.wood2})`, color: "#FFFFFF", fontFamily: "JetBrains Mono", fontSize: 13, fontWeight: 600, cursor: "pointer", padding: "0 24px" }}
+            >
+              {upgrading ? "Redirecting…" : "Start free trial"}
+            </button>
+          </section>
+        ) : (
+          <>
         <section style={{ background: COLORS.panel, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: 16, marginBottom: 16 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
             <span style={{ fontFamily: "Space Grotesk", fontWeight: 600, fontSize: 14, color: COLORS.ink }}>This period</span>
@@ -444,6 +461,8 @@ function JobList({ user, onOpenJob, subscription, setSubscription }) {
             ))}
           </section>
         )}
+          </>
+        )}
       </div>
     );
   }
@@ -495,7 +514,7 @@ function JobList({ user, onOpenJob, subscription, setSubscription }) {
         </p>
       )}
 
-      {upcomingJobs.length > 0 && (
+      {onContractorPlan && upcomingJobs.length > 0 && (
         <section style={{ background: COLORS.panel, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: "4px 16px", marginTop: 16 }}>
           <div style={{ fontFamily: "Space Grotesk", fontWeight: 600, fontSize: 14, color: COLORS.ink, padding: "12px 0 6px" }}>Upcoming</div>
           {upcomingJobs.map((j, i, arr) => (

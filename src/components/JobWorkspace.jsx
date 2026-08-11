@@ -98,6 +98,20 @@ export function JobWorkspace({ jobId, onBackToJobs, user, onContractorPlan }) {
   const [saveStatus, setSaveStatus] = useState("");
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
+  const [upgrading, setUpgrading] = useState(false);
+
+  // Job status tracking and scheduling are Contractor features, same gate
+  // as Invoice — a free-plan click starts the upgrade flow instead of
+  // changing anything, so the controls stay visible (not hidden) but
+  // inert until the user is actually on the plan that unlocks them.
+  const handleUpgrade = async () => {
+    setUpgrading(true);
+    try {
+      await startCheckout(user.id, user.email);
+    } catch {
+      setUpgrading(false);
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -171,38 +185,58 @@ export function JobWorkspace({ jobId, onBackToJobs, user, onContractorPlan }) {
           />
           <span style={{ fontFamily: "JetBrains Mono", fontSize: 10, color: COLORS.sub, opacity: saveStatus ? 1 : 0, transition: "opacity 0.3s" }}>{saveStatus || "·"}</span>
         </div>
-        <div style={{ display: "flex", border: `1px solid ${COLORS.border}`, borderRadius: 8, overflow: "hidden" }}>
-          {[["quote", "Quote"], ["in-progress", "In progress"], ["complete", "Complete"]].map(([id, label]) => (
-            <button
-              key={id}
-              onClick={() => setJobStatus(id)}
-              style={{
-                flex: 1, minHeight: 32, fontFamily: "JetBrains Mono", fontSize: 11, fontWeight: 600, border: "none",
-                background: jobStatus === id ? (id === "complete" ? COLORS.reuse : `linear-gradient(135deg, ${COLORS.wood1}, ${COLORS.wood2})`) : "#FBFAF7",
-                color: jobStatus === id ? (id === "complete" ? COLORS.ink : "#FFFFFF") : COLORS.sub,
-                cursor: "pointer",
-              }}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-        <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <span style={{ fontFamily: "Inter", fontSize: 11, fontWeight: 600, color: COLORS.sub, textTransform: "uppercase", letterSpacing: "0.04em", whiteSpace: "nowrap" }}>
-            Scheduled
-          </span>
-          <input
-            type="date"
-            value={scheduledDate}
-            onChange={(e) => setScheduledDate(e.target.value)}
-            style={{ flex: 1, minHeight: 36, borderRadius: 7, border: `1px solid ${COLORS.border}`, background: "#FBFAF7", color: COLORS.ink, fontFamily: "JetBrains Mono", fontSize: 12, padding: "0 8px" }}
-          />
-          {scheduledDate && (
-            <button onClick={() => setScheduledDate("")} aria-label="Clear scheduled date" style={{ border: "none", background: "none", color: COLORS.sub, cursor: "pointer", fontFamily: "JetBrains Mono", fontSize: 14, padding: "0 4px" }}>
-              ×
-            </button>
-          )}
-        </label>
+        {onContractorPlan ? (
+          <div style={{ display: "flex", border: `1px solid ${COLORS.border}`, borderRadius: 8, overflow: "hidden" }}>
+            {[["quote", "Quote"], ["in-progress", "In progress"], ["complete", "Complete"]].map(([id, label]) => (
+              <button
+                key={id}
+                onClick={() => setJobStatus(id)}
+                style={{
+                  flex: 1, minHeight: 32, fontFamily: "JetBrains Mono", fontSize: 11, fontWeight: 600, border: "none",
+                  background: jobStatus === id ? (id === "complete" ? COLORS.reuse : `linear-gradient(135deg, ${COLORS.wood1}, ${COLORS.wood2})`) : "#FBFAF7",
+                  color: jobStatus === id ? (id === "complete" ? COLORS.ink : "#FFFFFF") : COLORS.sub,
+                  cursor: "pointer",
+                }}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        ) : (
+          <button
+            onClick={handleUpgrade}
+            disabled={upgrading}
+            style={{ minHeight: 32, borderRadius: 8, border: `1px dashed ${COLORS.border}`, background: "#FBFAF7", color: COLORS.sub, fontFamily: "JetBrains Mono", fontSize: 11, fontWeight: 600, cursor: "pointer", textAlign: "left", padding: "0 10px" }}
+          >
+            {upgrading ? "Redirecting…" : "Locked — job status tracking is a Contractor feature. Tap to start a free trial."}
+          </button>
+        )}
+        {onContractorPlan ? (
+          <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ fontFamily: "Inter", fontSize: 11, fontWeight: 600, color: COLORS.sub, textTransform: "uppercase", letterSpacing: "0.04em", whiteSpace: "nowrap" }}>
+              Scheduled
+            </span>
+            <input
+              type="date"
+              value={scheduledDate}
+              onChange={(e) => setScheduledDate(e.target.value)}
+              style={{ flex: 1, minHeight: 36, borderRadius: 7, border: `1px solid ${COLORS.border}`, background: "#FBFAF7", color: COLORS.ink, fontFamily: "JetBrains Mono", fontSize: 12, padding: "0 8px" }}
+            />
+            {scheduledDate && (
+              <button onClick={() => setScheduledDate("")} aria-label="Clear scheduled date" style={{ border: "none", background: "none", color: COLORS.sub, cursor: "pointer", fontFamily: "JetBrains Mono", fontSize: 14, padding: "0 4px" }}>
+                ×
+              </button>
+            )}
+          </label>
+        ) : (
+          <button
+            onClick={handleUpgrade}
+            disabled={upgrading}
+            style={{ minHeight: 36, borderRadius: 7, border: `1px dashed ${COLORS.border}`, background: "#FBFAF7", color: COLORS.sub, fontFamily: "JetBrains Mono", fontSize: 11, fontWeight: 600, cursor: "pointer", textAlign: "left", padding: "0 10px" }}
+          >
+            {upgrading ? "Redirecting…" : "Locked — scheduling is a Contractor feature. Tap to start a free trial."}
+          </button>
+        )}
       </section>
 
       {/* Step nav */}
