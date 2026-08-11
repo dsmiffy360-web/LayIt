@@ -21,6 +21,22 @@ function periodStart(period) {
   return new Date(now.getFullYear(), now.getMonth(), 1).getTime();
 }
 
+// A job's date for revenue/tax tracking. Prefers the invoice date (entered
+// once on the Invoice step) over last-updated, since last-updated shifts
+// every time the job row is saved — editing a client's phone number months
+// after a job wrapped shouldn't move that job's income into a different
+// tax period. Falls back to last-updated for jobs with no invoice date set.
+function jobRevenueDate(j) {
+  const inv = j.jobData?.invoiceDate;
+  if (inv) {
+    const d = new Date(inv);
+    if (!isNaN(d.getTime())) return d.getTime();
+  }
+  return j.updatedAt;
+}
+
+const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
 const inputStyle = { fontFamily: "Inter", fontSize: 16, padding: "12px 12px", minHeight: 44, borderRadius: 8, border: `1px solid ${COLORS.border}`, background: "#FBFAF7", color: COLORS.ink, width: "100%" };
 const primaryButtonStyle = { minHeight: 48, borderRadius: 8, border: "none", background: `linear-gradient(135deg, ${COLORS.wood1}, ${COLORS.wood2})`, color: "#FFFFFF", fontFamily: "JetBrains Mono", fontSize: 13, fontWeight: 600, cursor: "pointer" };
 const secondaryButtonStyle = { minHeight: 44, borderRadius: 8, border: `1px solid ${COLORS.border}`, background: COLORS.panel, color: COLORS.ink, fontFamily: "JetBrains Mono", fontSize: 13, fontWeight: 600, cursor: "pointer" };
@@ -102,6 +118,7 @@ function JobList({ user, onOpenJob, subscription, setSubscription }) {
   const [portalLoading, setPortalLoading] = useState(false);
   const [summaryPeriod, setSummaryPeriod] = useState("month");
   const [showSummary, setShowSummary] = useState(false);
+  const [breakdownYear, setBreakdownYear] = useState(new Date().getFullYear());
 
   const refresh = async () => {
     try {
@@ -129,12 +146,12 @@ function JobList({ user, onOpenJob, subscription, setSubscription }) {
   const atFreeLimit = !onContractorPlan && activeJobCount >= FREE_TIER_JOB_LIMIT;
 
   // Revenue summary — counts a job (archived or not) if it's marked
-  // Complete and was last touched within the selected period. Reuses the
-  // exact same total the Invoice step shows, computed from each job's
-  // stored data blob, so this can never drift from what the contractor
-  // actually sees on an individual invoice.
+  // Complete and its revenue date (see jobRevenueDate) falls within the
+  // selected period. Reuses the exact same total the Invoice step shows,
+  // computed from each job's stored data blob, so this can never drift
+  // from what the contractor actually sees on an individual invoice.
   const periodMs = jobs ? periodStart(summaryPeriod) : 0;
-  const completedInPeriod = jobs ? jobs.filter((j) => j.status === "complete" && j.updatedAt >= periodMs) : [];
+  const completedInPeriod = jobs ? jobs.filter((j) => j.status === "complete" && jobRevenueDate(j) >= periodMs) : [];
   const summaryValue = completedInPeriod.reduce((sum, j) => {
     if (!j.jobData) return sum;
     try {
@@ -182,6 +199,32 @@ function JobList({ user, onOpenJob, subscription, setSubscription }) {
     .filter((j) => j.scheduledDate && j.scheduledDate < todayStr && j.status !== "complete")
     .sort((a, b) => a.scheduledDate.localeCompare(b.scheduledDate));
   const avgJobValue = completedInPeriod.length ? summaryValue / completedInPeriod.length : 0;
+
+  // Monthly breakdown, for tax tracking — every completed job (archived or
+  // not, same as the period stat above) grouped by month for a chosen
+  // year, using the same revenue-date rule so the two sections never
+  // disagree about which month a job belongs in.
+  const completedAllTime = jobs ? jobs.filter((j) => j.status === "complete") : [];
+  const yearsWithData = Array.from(new Set(completedAllTime.map((j) => new Date(jobRevenueDate(j)).getFullYear())));
+  const currentYear = new Date().getFullYear();
+  if (!yearsWithData.includes(currentYear)) yearsWithData.push(currentYear);
+  yearsWithData.sort((a, b) => b - a);
+  const monthlyBreakdown = MONTH_NAMES.map((label, month) => {
+    const monthJobs = completedAllTime.filter((j) => {
+      const d = new Date(jobRevenueDate(j));
+      return d.getFullYear() === breakdownYear && d.getMonth() === month;
+    });
+    const value = monthJobs.reduce((sum, j) => {
+      if (!j.jobData) return sum;
+      try {
+        return sum + computeJobInvoiceTotal(j.jobData).total;
+      } catch {
+        return sum;
+      }
+    }, 0);
+    return { label, count: monthJobs.length, value };
+  });
+  const yearTotal = monthlyBreakdown.reduce((sum, m) => sum + m.value, 0);
 
   const handleCreate = async () => {
     if (atFreeLimit) return;
@@ -301,6 +344,38 @@ function JobList({ user, onOpenJob, subscription, setSubscription }) {
               <div style={{ fontFamily: "Inter", fontSize: 11, color: COLORS.sub, textTransform: "uppercase" }}>Complete</div>
               <div style={{ fontFamily: "JetBrains Mono", fontSize: 18, fontWeight: 600, marginTop: 2 }}>{pipelineCounts.complete}</div>
             </div>
+          </div>
+        </section>
+
+        <section style={{ background: COLORS.panel, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: 16, marginBottom: 16 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+            <span style={{ fontFamily: "Space Grotesk", fontWeight: 600, fontSize: 14, color: COLORS.ink }}>Monthly breakdown</span>
+            <select
+              value={breakdownYear}
+              onChange={(e) => setBreakdownYear(parseInt(e.target.value, 10))}
+              style={{ fontFamily: "JetBrains Mono", fontSize: 12, fontWeight: 600, border: `1px solid ${COLORS.border}`, borderRadius: 6, padding: "4px 8px", background: "#FBFAF7", color: COLORS.ink }}
+            >
+              {yearsWithData.map((y) => (
+                <option key={y} value={y}>{y}</option>
+              ))}
+            </select>
+          </div>
+          <p style={{ fontFamily: "Inter", fontSize: 11, color: COLORS.sub, margin: "0 0 10px" }}>
+            By invoice date where set, otherwise last-updated — for quarterly estimates or year-end totals.
+          </p>
+          {monthlyBreakdown.map((m, i) => (
+            <div
+              key={m.label}
+              style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto", alignItems: "center", padding: "7px 0", borderTop: i > 0 ? `1px solid ${COLORS.border}` : "none" }}
+            >
+              <span style={{ fontFamily: "JetBrains Mono", fontSize: 13, color: m.count ? COLORS.ink : COLORS.sub }}>{m.label}</span>
+              <span style={{ fontFamily: "Inter", fontSize: 11, color: COLORS.sub }}>{m.count ? `${m.count} job${m.count === 1 ? "" : "s"}` : "—"}</span>
+              <span style={{ fontFamily: "JetBrains Mono", fontSize: 13, fontWeight: 600, color: m.count ? COLORS.ink : COLORS.sub, textAlign: "right" }}>{m.value.toFixed(2)}</span>
+            </div>
+          ))}
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0 0", marginTop: 6, borderTop: `2px solid ${COLORS.border}` }}>
+            <span style={{ fontFamily: "Space Grotesk", fontWeight: 600, fontSize: 13, color: COLORS.ink }}>{breakdownYear} total</span>
+            <span style={{ fontFamily: "JetBrains Mono", fontSize: 15, fontWeight: 700, color: COLORS.accentText }}>{yearTotal.toFixed(2)}</span>
           </div>
         </section>
 
