@@ -226,6 +226,22 @@ function JobList({ user, onOpenJob, subscription, setSubscription }) {
   });
   const yearTotal = monthlyBreakdown.reduce((sum, m) => sum + m.value, 0);
 
+  // Paid jobs for the same selected year — a clickable reference list so a
+  // contractor can jump back into any job whose income already landed in
+  // the breakdown above, e.g. to re-pull an invoice for a tax filing.
+  const paidJobsInYear = completedAllTime
+    .filter((j) => j.jobData?.paymentStatus === "paid" && new Date(jobRevenueDate(j)).getFullYear() === breakdownYear)
+    .map((j) => {
+      let value = 0;
+      try {
+        value = computeJobInvoiceTotal(j.jobData).total;
+      } catch {
+        // leave value at 0
+      }
+      return { ...j, revenueDate: jobRevenueDate(j), value };
+    })
+    .sort((a, b) => b.revenueDate - a.revenueDate);
+
   const handleCreate = async () => {
     if (atFreeLimit) return;
     try {
@@ -377,6 +393,33 @@ function JobList({ user, onOpenJob, subscription, setSubscription }) {
             <span style={{ fontFamily: "Space Grotesk", fontWeight: 600, fontSize: 13, color: COLORS.ink }}>{breakdownYear} total</span>
             <span style={{ fontFamily: "JetBrains Mono", fontSize: 15, fontWeight: 700, color: COLORS.accentText }}>{yearTotal.toFixed(2)}</span>
           </div>
+        </section>
+
+        <section style={{ background: COLORS.panel, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: "4px 16px", marginBottom: 16 }}>
+          <div style={{ fontFamily: "Space Grotesk", fontWeight: 600, fontSize: 14, color: COLORS.ink, padding: "12px 0 6px" }}>
+            Paid jobs — {breakdownYear} ({paidJobsInYear.length})
+          </div>
+          {paidJobsInYear.map((j, i, arr) => (
+            <button
+              key={j.id}
+              onClick={() => onOpenJob(j.id)}
+              style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", padding: "10px 0", borderTop: i > 0 ? `1px solid ${COLORS.border}` : "none", background: "none", border: "none", cursor: "pointer", textAlign: "left" }}
+            >
+              <div>
+                <div style={{ fontFamily: "JetBrains Mono", fontSize: 13, fontWeight: 600, color: COLORS.ink }}>{j.name}</div>
+                {j.client && <div style={{ fontFamily: "Inter", fontSize: 11, color: COLORS.sub, marginTop: 2 }}>{j.client}</div>}
+              </div>
+              <div style={{ textAlign: "right" }}>
+                <div style={{ fontFamily: "JetBrains Mono", fontSize: 13, fontWeight: 600, color: COLORS.reuse }}>{j.value.toFixed(2)}</div>
+                <div style={{ fontFamily: "Inter", fontSize: 11, color: COLORS.sub, marginTop: 2 }}>
+                  {new Date(j.revenueDate).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+                </div>
+              </div>
+            </button>
+          ))}
+          {paidJobsInYear.length === 0 && (
+            <p style={{ fontFamily: "Inter", fontSize: 13, color: COLORS.sub, padding: "0 0 12px" }}>No paid jobs for {breakdownYear} yet.</p>
+          )}
         </section>
 
         {overdueJobs.length > 0 && (
