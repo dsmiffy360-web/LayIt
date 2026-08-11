@@ -38,6 +38,7 @@ export function PatternStep({ job, updateJob }) {
   const preview = computePatternPreview(job);
   const PreviewDiagram = preview && PREVIEW_DIAGRAMS[preview.kind];
   const pieceLabel = job.materialName.trim() || (materialType === "tile" ? "Tile" : "Plank");
+  const usesStartPoint = (id) => id === "herringbone" || id === "chevron" || id === "doubleherringbone";
 
   return (
     <section style={{ background: COLORS.panel, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 18, marginBottom: 14 }}>
@@ -60,6 +61,28 @@ export function PatternStep({ job, updateJob }) {
                 </div>
                 <div style={{ fontFamily: "Inter", fontSize: 12, color: COLORS.sub, marginTop: 3 }}>{opt.desc}</div>
               </button>
+              {isSelected && usesStartPoint(opt.id) && (
+                <div style={{ marginTop: 8, padding: "0 2px" }}>
+                  <span style={{ fontFamily: "Inter", fontSize: 11, fontWeight: 600, color: COLORS.sub, textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                    Start point
+                  </span>
+                  <div style={{ display: "flex", border: `1px solid ${COLORS.border}`, borderRadius: 8, overflow: "hidden", marginTop: 4 }}>
+                    {[{ id: false, label: "Corner" }, { id: true, label: "Center of room" }].map((sp) => (
+                      <button
+                        key={String(sp.id)}
+                        onClick={() => updateJob({ hbCentered: sp.id })}
+                        style={{
+                          flex: 1, minHeight: 44, fontFamily: "JetBrains Mono", fontSize: 12, fontWeight: 600, border: "none",
+                          background: job.hbCentered === sp.id ? `linear-gradient(135deg, ${COLORS.wood1}, ${COLORS.wood2})` : "#FBFAF7",
+                          color: job.hbCentered === sp.id ? COLORS.ink : COLORS.sub,
+                        }}
+                      >
+                        {sp.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
               {isSelected && PreviewDiagram && (
                 <div style={{ marginTop: 8, padding: "0 2px" }}>
                   <div style={{ fontFamily: "Inter", fontSize: 11, fontWeight: 600, color: COLORS.sub, textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 6 }}>
@@ -72,28 +95,6 @@ export function PatternStep({ job, updateJob }) {
           );
         })}
       </div>
-      {(layoutMethod === "herringbone" || layoutMethod === "chevron") && (
-        <div style={{ marginTop: 12 }}>
-          <span style={{ fontFamily: "Inter", fontSize: 11, fontWeight: 600, color: COLORS.sub, textTransform: "uppercase", letterSpacing: "0.04em" }}>
-            Start point
-          </span>
-          <div style={{ display: "flex", border: `1px solid ${COLORS.border}`, borderRadius: 8, overflow: "hidden", marginTop: 4 }}>
-            {[{ id: false, label: "Corner" }, { id: true, label: "Center of room" }].map((sp) => (
-              <button
-                key={String(sp.id)}
-                onClick={() => updateJob({ hbCentered: sp.id })}
-                style={{
-                  flex: 1, minHeight: 44, fontFamily: "JetBrains Mono", fontSize: 12, fontWeight: 600, border: "none",
-                  background: job.hbCentered === sp.id ? `linear-gradient(135deg, ${COLORS.wood1}, ${COLORS.wood2})` : "#FBFAF7",
-                  color: job.hbCentered === sp.id ? COLORS.ink : COLORS.sub,
-                }}
-              >
-                {sp.label}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
     </section>
   );
 }
