@@ -101,6 +101,7 @@ function JobList({ user, onOpenJob, subscription, setSubscription }) {
   const [upgrading, setUpgrading] = useState(false);
   const [portalLoading, setPortalLoading] = useState(false);
   const [summaryPeriod, setSummaryPeriod] = useState("month");
+  const [showSummary, setShowSummary] = useState(false);
 
   const refresh = async () => {
     try {
@@ -150,6 +151,37 @@ function JobList({ user, onOpenJob, subscription, setSubscription }) {
   const upcomingJobs = jobs
     ? jobs.filter((j) => !j.archived && j.scheduledDate && j.scheduledDate >= todayStr).sort((a, b) => a.scheduledDate.localeCompare(b.scheduledDate))
     : [];
+
+  // Everything below is for the separate Summary page — a snapshot of the
+  // business as a whole rather than the period-scoped revenue stat above,
+  // so a contractor can see what's owed and what's stuck without digging
+  // through every job individually.
+  const activeJobs = jobs ? jobs.filter((j) => !j.archived) : [];
+  const pipelineCounts = {
+    quote: activeJobs.filter((j) => j.status === "quote").length,
+    "in-progress": activeJobs.filter((j) => j.status === "in-progress").length,
+    complete: activeJobs.filter((j) => j.status === "complete").length,
+  };
+  // Outstanding balance only counts jobs that have actually been worked on
+  // (not bare quotes) and aren't fully paid — an unaccepted quote isn't
+  // money owed yet.
+  const outstandingBalance = activeJobs
+    .filter((j) => j.status !== "quote" && j.jobData)
+    .reduce((sum, j) => {
+      try {
+        const { total } = computeJobInvoiceTotal(j.jobData);
+        const paymentStatus = j.jobData.paymentStatus;
+        if (paymentStatus === "paid") return sum;
+        const paid = paymentStatus === "deposit" ? Math.max(0, parseFloat(j.jobData.depositAmount) || 0) : 0;
+        return sum + Math.max(0, total - paid);
+      } catch {
+        return sum;
+      }
+    }, 0);
+  const overdueJobs = activeJobs
+    .filter((j) => j.scheduledDate && j.scheduledDate < todayStr && j.status !== "complete")
+    .sort((a, b) => a.scheduledDate.localeCompare(b.scheduledDate));
+  const avgJobValue = completedInPeriod.length ? summaryValue / completedInPeriod.length : 0;
 
   const handleCreate = async () => {
     if (atFreeLimit) return;
@@ -204,6 +236,100 @@ function JobList({ user, onOpenJob, subscription, setSubscription }) {
     </div>
   );
 
+  if (showSummary) {
+    return (
+      <div style={{ maxWidth: 480, margin: "40px auto", padding: "0 16px 40px" }}>
+        <button onClick={() => setShowSummary(false)} style={{ background: "none", border: "none", color: COLORS.sub, cursor: "pointer", padding: 0, marginBottom: 16, fontFamily: "JetBrains Mono", fontSize: 12, fontWeight: 600 }}>
+          ← Back
+        </button>
+        <h1 style={{ fontFamily: "Space Grotesk", fontWeight: 700, fontSize: 28, color: COLORS.accentText, margin: "0 0 20px" }}>
+          Summary
+        </h1>
+
+        <section style={{ background: COLORS.panel, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: 16, marginBottom: 16 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+            <span style={{ fontFamily: "Space Grotesk", fontWeight: 600, fontSize: 14, color: COLORS.ink }}>This period</span>
+            <div style={{ display: "flex", border: `1px solid ${COLORS.border}`, borderRadius: 7, overflow: "hidden" }}>
+              {[["week", "Week"], ["month", "Month"], ["year", "Year"]].map(([id, label]) => (
+                <button
+                  key={id}
+                  onClick={() => setSummaryPeriod(id)}
+                  style={{
+                    minHeight: 30, padding: "0 10px", fontFamily: "JetBrains Mono", fontSize: 11, fontWeight: 600, border: "none",
+                    background: summaryPeriod === id ? `linear-gradient(135deg, ${COLORS.wood1}, ${COLORS.wood2})` : "#FBFAF7",
+                    color: summaryPeriod === id ? "#FFFFFF" : COLORS.sub, cursor: "pointer",
+                  }}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+            <div style={{ background: "#FBFAF7", borderRadius: 8, padding: "10px 12px", borderLeft: `3px solid ${COLORS.reuse}` }}>
+              <div style={{ fontFamily: "Inter", fontSize: 11, color: COLORS.sub, textTransform: "uppercase" }}>Jobs completed</div>
+              <div style={{ fontFamily: "JetBrains Mono", fontSize: 20, fontWeight: 600, marginTop: 2 }}>{completedInPeriod.length}</div>
+            </div>
+            <div style={{ background: "#FBFAF7", borderRadius: 8, padding: "10px 12px", borderLeft: `3px solid ${COLORS.wood1}` }}>
+              <div style={{ fontFamily: "Inter", fontSize: 11, color: COLORS.sub, textTransform: "uppercase" }}>Value of work</div>
+              <div style={{ fontFamily: "JetBrains Mono", fontSize: 20, fontWeight: 600, marginTop: 2 }}>{summaryValue.toFixed(2)}</div>
+            </div>
+            <div style={{ background: "#FBFAF7", borderRadius: 8, padding: "10px 12px", borderLeft: `3px solid ${COLORS.accent}`, gridColumn: "1 / -1" }}>
+              <div style={{ fontFamily: "Inter", fontSize: 11, color: COLORS.sub, textTransform: "uppercase" }}>Average job value</div>
+              <div style={{ fontFamily: "JetBrains Mono", fontSize: 20, fontWeight: 600, marginTop: 2 }}>{avgJobValue.toFixed(2)}</div>
+            </div>
+          </div>
+        </section>
+
+        <section style={{ background: COLORS.panel, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: 16, marginBottom: 16 }}>
+          <div style={{ fontFamily: "Space Grotesk", fontWeight: 600, fontSize: 14, color: COLORS.ink, marginBottom: 12 }}>Right now</div>
+          <div style={{ background: "#FBFAF7", borderRadius: 8, padding: "10px 12px", borderLeft: `3px solid ${COLORS.wasteText}`, marginBottom: 10 }}>
+            <div style={{ fontFamily: "Inter", fontSize: 11, color: COLORS.sub, textTransform: "uppercase" }}>Outstanding balance</div>
+            <div style={{ fontFamily: "JetBrains Mono", fontSize: 20, fontWeight: 600, marginTop: 2 }}>{outstandingBalance.toFixed(2)}</div>
+            <div style={{ fontFamily: "Inter", fontSize: 11, color: COLORS.sub, marginTop: 4 }}>Across jobs in progress or complete that aren't fully paid</div>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+            <div style={{ background: "#FBFAF7", borderRadius: 8, padding: "10px 12px" }}>
+              <div style={{ fontFamily: "Inter", fontSize: 11, color: COLORS.sub, textTransform: "uppercase" }}>Quotes</div>
+              <div style={{ fontFamily: "JetBrains Mono", fontSize: 18, fontWeight: 600, marginTop: 2 }}>{pipelineCounts.quote}</div>
+            </div>
+            <div style={{ background: "#FBFAF7", borderRadius: 8, padding: "10px 12px" }}>
+              <div style={{ fontFamily: "Inter", fontSize: 11, color: COLORS.sub, textTransform: "uppercase" }}>In progress</div>
+              <div style={{ fontFamily: "JetBrains Mono", fontSize: 18, fontWeight: 600, marginTop: 2 }}>{pipelineCounts["in-progress"]}</div>
+            </div>
+            <div style={{ background: "#FBFAF7", borderRadius: 8, padding: "10px 12px" }}>
+              <div style={{ fontFamily: "Inter", fontSize: 11, color: COLORS.sub, textTransform: "uppercase" }}>Complete</div>
+              <div style={{ fontFamily: "JetBrains Mono", fontSize: 18, fontWeight: 600, marginTop: 2 }}>{pipelineCounts.complete}</div>
+            </div>
+          </div>
+        </section>
+
+        {overdueJobs.length > 0 && (
+          <section style={{ background: COLORS.panel, border: `1px solid ${COLORS.wasteText}`, borderRadius: 12, padding: "4px 16px" }}>
+            <div style={{ fontFamily: "Space Grotesk", fontWeight: 600, fontSize: 14, color: COLORS.wasteText, padding: "12px 0 6px" }}>
+              Overdue ({overdueJobs.length})
+            </div>
+            {overdueJobs.map((j, i, arr) => (
+              <button
+                key={j.id}
+                onClick={() => onOpenJob(j.id)}
+                style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", padding: "10px 0", borderTop: i > 0 ? `1px solid ${COLORS.border}` : "none", background: "none", border: "none", cursor: "pointer", textAlign: "left" }}
+              >
+                <div>
+                  <div style={{ fontFamily: "JetBrains Mono", fontSize: 13, fontWeight: 600, color: COLORS.ink }}>{j.name}</div>
+                  {j.client && <div style={{ fontFamily: "Inter", fontSize: 11, color: COLORS.sub, marginTop: 2 }}>{j.client}</div>}
+                </div>
+                <span style={{ fontFamily: "JetBrains Mono", fontSize: 12, color: COLORS.wasteText, fontWeight: 600, whiteSpace: "nowrap" }}>
+                  {new Date(j.scheduledDate + "T00:00:00").toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })}
+                </span>
+              </button>
+            ))}
+          </section>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div style={{ maxWidth: 480, margin: "40px auto", padding: "0 16px 40px" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
@@ -217,7 +343,10 @@ function JobList({ user, onOpenJob, subscription, setSubscription }) {
             </div>
           )}
         </div>
-        <button onClick={signOut} style={secondaryButtonStyle}>Sign out</button>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button onClick={() => setShowSummary(true)} style={secondaryButtonStyle}>Summary</button>
+          <button onClick={signOut} style={secondaryButtonStyle}>Sign out</button>
+        </div>
       </div>
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
@@ -238,37 +367,6 @@ function JobList({ user, onOpenJob, subscription, setSubscription }) {
       {checkoutNotice && (
         <p style={{ fontFamily: "Inter", fontSize: 13, color: COLORS.sub, background: "#F0EEE7", borderRadius: 8, padding: "10px 12px", marginBottom: 16 }}>{checkoutNotice}</p>
       )}
-
-      <section style={{ background: COLORS.panel, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: 16, marginBottom: 16 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-          <span style={{ fontFamily: "Space Grotesk", fontWeight: 600, fontSize: 14, color: COLORS.ink }}>Summary</span>
-          <div style={{ display: "flex", border: `1px solid ${COLORS.border}`, borderRadius: 7, overflow: "hidden" }}>
-            {[["week", "Week"], ["month", "Month"], ["year", "Year"]].map(([id, label]) => (
-              <button
-                key={id}
-                onClick={() => setSummaryPeriod(id)}
-                style={{
-                  minHeight: 30, padding: "0 10px", fontFamily: "JetBrains Mono", fontSize: 11, fontWeight: 600, border: "none",
-                  background: summaryPeriod === id ? `linear-gradient(135deg, ${COLORS.wood1}, ${COLORS.wood2})` : "#FBFAF7",
-                  color: summaryPeriod === id ? "#FFFFFF" : COLORS.sub, cursor: "pointer",
-                }}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-        </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-          <div style={{ background: "#FBFAF7", borderRadius: 8, padding: "10px 12px", borderLeft: `3px solid ${COLORS.reuse}` }}>
-            <div style={{ fontFamily: "Inter", fontSize: 11, color: COLORS.sub, textTransform: "uppercase" }}>Jobs completed</div>
-            <div style={{ fontFamily: "JetBrains Mono", fontSize: 20, fontWeight: 600, marginTop: 2 }}>{completedInPeriod.length}</div>
-          </div>
-          <div style={{ background: "#FBFAF7", borderRadius: 8, padding: "10px 12px", borderLeft: `3px solid ${COLORS.wood1}` }}>
-            <div style={{ fontFamily: "Inter", fontSize: 11, color: COLORS.sub, textTransform: "uppercase" }}>Value of work</div>
-            <div style={{ fontFamily: "JetBrains Mono", fontSize: 20, fontWeight: 600, marginTop: 2 }}>{summaryValue.toFixed(2)}</div>
-          </div>
-        </div>
-      </section>
 
       <button onClick={handleCreate} disabled={atFreeLimit} style={{ ...primaryButtonStyle, width: "100%", fontSize: 14, opacity: atFreeLimit ? 0.5 : 1, cursor: atFreeLimit ? "default" : "pointer" }}>
         + New job
