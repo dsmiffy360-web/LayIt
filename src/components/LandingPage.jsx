@@ -1,12 +1,12 @@
 import { COLORS } from "../lib/colors";
 
 const FEATURES = [
+  { title: "Alcoves get the real pattern, not scrap", desc: "Most calculators treat an odd nook as a rectangle plus leftover material. LayIt actually continues herringbone, chevron, hexagon, and more straight into the alcove." },
+  { title: "One tool, start to finish", desc: "Measure the room, get the cut list, hand over a client-ready invoice, and pull a tax-ready income breakdown at year end — no separate measuring app, invoicing tool, and spreadsheet to keep in sync." },
+  { title: "Built for the job site, not the office", desc: "Installable on your phone and works offline. The cut list is a tap-to-check-off checklist you actually use mid-cut, not a PDF you printed at a desk." },
   { title: "14 lay patterns", desc: "Straight, herringbone, chevron, basket weave, hexagon, Versailles, and more — pick one and see it rendered before you commit material." },
-  { title: "Real cut lists, not estimates", desc: "Exact piece counts and cut lengths for every pattern, with a tap-to-check-off list for cutting day." },
-  { title: "Alcoves & odd-shaped rooms", desc: "Split a room into sections and add alcoves — the numbers account for them instead of quietly ignoring the nook." },
   { title: "Client-ready invoices", desc: "Your logo, business profile, and bank details saved once, reused on every job. Print, copy as text, or save as PDF. Contractor plan." },
-  { title: "Works on your phone", desc: "Installable as an app on iOS or Android — measure and check off cuts on-site, not just at a desk." },
-  { title: "Business summary", desc: "Jobs completed and value of work for this week, month, or year, at a glance on your job list." },
+  { title: "Business summary & tax records", desc: "Jobs completed and value of work at a glance, plus a monthly income breakdown and paid-jobs export for tax time. Contractor plan." },
 ];
 
 const inputLikeButton = { minHeight: 52, borderRadius: 10, border: "none", background: `linear-gradient(135deg, ${COLORS.wood1}, ${COLORS.wood2})`, color: "#FFFFFF", fontFamily: "JetBrains Mono", fontSize: 15, fontWeight: 600, cursor: "pointer", padding: "0 28px" };
