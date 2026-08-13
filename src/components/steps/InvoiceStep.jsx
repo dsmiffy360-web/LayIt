@@ -8,6 +8,7 @@ import { Field } from "../shared/Field";
 import { TextField } from "../shared/TextField";
 import { ConfirmButton } from "../shared/ConfirmButton";
 import { AttachmentsSection } from "../shared/Attachments";
+import { generateInvoicePdf } from "../../lib/pdfInvoice";
 
 let lineItemIdCounter = 1000;
 
@@ -142,6 +143,16 @@ export function InvoiceStep({ job, updateJob, jobId, jobName, clientName, setCli
     if (invoiceNotes) { lines.push(""); lines.push(invoiceNotes); }
     if (business.bank_details) { lines.push(""); lines.push("Payment details:"); lines.push(business.bank_details); }
     return lines.join("\n");
+  };
+
+  const handleDownloadPdf = () => {
+    generateInvoicePdf({
+      business, invoiceNumber, invoiceDate, clientName, clientAddress, jobName,
+      materials, materialsAmount, laborAmount, extraLineItems,
+      subtotal, taxPct, tax, total, paymentStatus, depositPaid, balanceDue,
+      invoiceNotes,
+      filename: `${(jobName || "invoice").replace(/[^a-z0-9]+/gi, "-").toLowerCase()}-invoice.pdf`,
+    });
   };
 
   const handleCopy = async () => {
@@ -336,7 +347,7 @@ export function InvoiceStep({ job, updateJob, jobId, jobName, clientName, setCli
         </div>
       </section>
 
-      <section className="invoice-print-area" style={{ background: COLORS.panel, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 20, marginBottom: 18 }}>
+      <section style={{ background: COLORS.panel, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 20, marginBottom: 18 }}>
         <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 16 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
             {business.logo && <img src={business.logo} alt="" style={{ maxHeight: 44, maxWidth: 100 }} />}
@@ -395,8 +406,8 @@ export function InvoiceStep({ job, updateJob, jobId, jobName, clientName, setCli
         <button onClick={handleCopy} style={{ flex: 1, minHeight: 44, fontFamily: "JetBrains Mono", fontSize: 13, fontWeight: 600, borderRadius: 8, border: `1px solid ${COLORS.border}`, background: "#FBFAF7", color: COLORS.ink, cursor: "pointer" }}>
           {copyStatus || "📋 Copy as text"}
         </button>
-        <button onClick={() => window.print()} style={{ flex: 1, minHeight: 44, fontFamily: "JetBrains Mono", fontSize: 13, fontWeight: 600, borderRadius: 8, border: "none", background: `linear-gradient(135deg, ${COLORS.wood1}, ${COLORS.wood2})`, color: COLORS.ink, cursor: "pointer" }}>
-          🖨 Print / Save as PDF
+        <button onClick={handleDownloadPdf} style={{ flex: 1, minHeight: 44, fontFamily: "JetBrains Mono", fontSize: 13, fontWeight: 600, borderRadius: 8, border: "none", background: `linear-gradient(135deg, ${COLORS.wood1}, ${COLORS.wood2})`, color: COLORS.ink, cursor: "pointer" }}>
+          ⬇ Download PDF
         </button>
       </div>
     </div>

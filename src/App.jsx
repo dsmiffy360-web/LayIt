@@ -168,6 +168,8 @@ function JobList({ user, onOpenJob, subscription, setSubscription }) {
   const [summaryPeriod, setSummaryPeriod] = useState("month");
   const [showSummary, setShowSummary] = useState(false);
   const [breakdownYear, setBreakdownYear] = useState(new Date().getFullYear());
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
 
   const refresh = async () => {
     try {
@@ -193,6 +195,21 @@ function JobList({ user, onOpenJob, subscription, setSubscription }) {
   const activeJobCount = jobs ? jobs.filter((j) => !j.archived).length : 0;
   const onContractorPlan = isContractorPlan(subscription);
   const atFreeLimit = !onContractorPlan && activeJobCount >= FREE_TIER_JOB_LIMIT;
+
+  // Search/filter for the active job list — once there are more than a
+  // handful of jobs, "chronological with no way to jump to a client or
+  // status" stops being usable. Doesn't touch the Summary page's own
+  // activeJobs (below), which is a different view with its own scope.
+  const visibleActiveJobs = jobs
+    ? jobs
+        .filter((j) => !j.archived)
+        .filter((j) => statusFilter === "all" || j.status === statusFilter)
+        .filter((j) => {
+          const q = searchQuery.trim().toLowerCase();
+          if (!q) return true;
+          return j.name.toLowerCase().includes(q) || (j.client || "").toLowerCase().includes(q);
+        })
+    : [];
 
   // Revenue summary — counts a job (archived or not) if it's marked
   // Complete and its revenue date (see jobRevenueDate) falls within the
@@ -604,11 +621,37 @@ function JobList({ user, onOpenJob, subscription, setSubscription }) {
         </section>
       )}
 
-      <section style={{ background: COLORS.panel, border: `1px solid ${COLORS.border}`, borderRadius: 12, marginTop: 16, padding: jobs.filter((j) => !j.archived).length ? "4px 16px" : 18 }}>
-        {jobs.filter((j) => !j.archived).map((j, i, arr) => (
+      {activeJobCount > 3 && (
+        <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
+          <input
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search name or client…"
+            style={{ flex: 1, minHeight: 40, borderRadius: 8, border: `1px solid ${COLORS.border}`, background: "#FBFAF7", color: COLORS.ink, fontFamily: "Inter", fontSize: 13, padding: "0 12px" }}
+          />
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            style={{ minHeight: 40, borderRadius: 8, border: `1px solid ${COLORS.border}`, background: "#FBFAF7", color: COLORS.ink, fontFamily: "JetBrains Mono", fontSize: 12, fontWeight: 600, padding: "0 8px" }}
+          >
+            <option value="all">All statuses</option>
+            <option value="quote">Quote</option>
+            <option value="in-progress">In progress</option>
+            <option value="complete">Complete</option>
+          </select>
+        </div>
+      )}
+
+      <section style={{ background: COLORS.panel, border: `1px solid ${COLORS.border}`, borderRadius: 12, marginTop: 16, padding: visibleActiveJobs.length ? "4px 16px" : 18 }}>
+        {visibleActiveJobs.map((j, i, arr) => (
           <div key={j.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 0", borderBottom: i < arr.length - 1 ? `1px solid ${COLORS.border}` : "none" }}>
             <button onClick={() => onOpenJob(j.id)} style={{ textAlign: "left", background: "none", border: "none", cursor: "pointer", flex: 1, padding: 0 }}>
-              <div style={{ fontFamily: "JetBrains Mono", fontSize: 14, fontWeight: 600, color: COLORS.ink }}>{j.name}</div>
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <span style={{ fontFamily: "JetBrains Mono", fontSize: 14, fontWeight: 600, color: COLORS.ink }}>{j.name}</span>
+                <span style={{ fontFamily: "JetBrains Mono", fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.03em", color: j.status === "complete" ? COLORS.reuse : COLORS.sub }}>
+                  {j.status === "in-progress" ? "In progress" : j.status === "complete" ? "Complete" : "Quote"}
+                </span>
+              </div>
               {j.client && <div style={{ fontFamily: "Inter", fontSize: 12, color: COLORS.sub, marginTop: 2 }}>{j.client}</div>}
             </button>
             <div style={{ display: "flex", gap: 6 }}>
@@ -622,8 +665,10 @@ function JobList({ user, onOpenJob, subscription, setSubscription }) {
             </div>
           </div>
         ))}
-        {jobs.filter((j) => !j.archived).length === 0 && (
-          <p style={{ fontFamily: "Inter", fontSize: 13, color: COLORS.sub, margin: 0 }}>No jobs yet — create your first one above.</p>
+        {visibleActiveJobs.length === 0 && (
+          <p style={{ fontFamily: "Inter", fontSize: 13, color: COLORS.sub, margin: 0 }}>
+            {activeJobCount === 0 ? "No jobs yet — create your first one above." : "No jobs match your search."}
+          </p>
         )}
       </section>
 

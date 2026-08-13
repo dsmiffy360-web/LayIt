@@ -35,12 +35,3 @@
     border-color: #C68A4E !important;
     box-shadow: 0 0 0 3px rgba(198,138,78,0.18);
   }
-
-  @media print {
-    body * { visibility: hidden; }
-    .invoice-print-area, .invoice-print-area *, .cutlist-print-area, .cutlist-print-area * { visibility: visible; }
-    .invoice-print-area, .cutlist-print-area { position: absolute; left: 0; top: 0; width: 100%; }
-    .no-print { display: none !important; }
-    .print-only-header { display: block !important; margin-bottom: 12px; }
-    section { box-shadow: none !important; }
-  }
