@@ -92,6 +92,41 @@ export function resizeImageToDataUri(file, maxDim = 240) {
   });
 }
 
+// Resizes/compresses an uploaded photo client-side before it goes to
+// Storage — a job-attachment photo (room shot, receipt) needs enough
+// detail to actually be readable later, unlike the small business logo
+// above, so this uses a larger max dimension and returns a Blob (for
+// upload) instead of a data URI (for inline storage).
+export function resizeImageToBlob(file, maxDim = 1600, quality = 0.82) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("Couldn't read that file."));
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error("That doesn't look like a valid image."));
+      img.onload = () => {
+        let { width, height } = img;
+        if (width > maxDim || height > maxDim) {
+          if (width > height) {
+            height = Math.round(height * (maxDim / width));
+            width = maxDim;
+          } else {
+            width = Math.round(width * (maxDim / height));
+            height = maxDim;
+          }
+        }
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        canvas.getContext("2d").drawImage(img, 0, 0, width, height);
+        canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error("Couldn't process that image."))), "image/jpeg", quality);
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
 export function csvField(v) {
   const s = String(v ?? "");
   return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;

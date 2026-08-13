@@ -76,6 +76,7 @@ export function defaultJobData() {
     extraLineItems: [],
     paymentStatus: "unpaid",
     depositAmount: "",
+    attachments: [],
   };
 }
 

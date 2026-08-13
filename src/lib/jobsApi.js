@@ -1,4 +1,5 @@
 import { supabase } from "./supabaseClient";
+import { deleteAllAttachmentsForJob } from "./attachments";
 
 // This module is the direct replacement for the artifact's window.storage
 // calls (job-index, job-{id}, active-job-id). Function names and shapes
@@ -66,6 +67,7 @@ export async function duplicateJob(sourceJobId) {
     depositAmount: "",
     status: "quote",
     scheduledDate: "", // a copy isn't scheduled for the same date as the original
+    attachments: [], // a copy doesn't inherit the original's room photos/receipts
   });
 }
 
@@ -90,6 +92,14 @@ export async function toggleArchiveJob(jobId, archived) {
 }
 
 export async function deleteJob(jobId) {
+  // Best-effort — a Storage hiccup shouldn't block the user from deleting
+  // the job itself. Orphaned attachment files with no job pointing to them
+  // are a minor cleanup issue, not a reason to fail this action.
+  try {
+    await deleteAllAttachmentsForJob(jobId);
+  } catch {
+    // ignore
+  }
   const { error } = await supabase.from("jobs").delete().eq("id", jobId);
   if (error) throw error;
 }

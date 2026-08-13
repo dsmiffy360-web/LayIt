@@ -154,3 +154,18 @@ create trigger saved_materials_updated_at before update on saved_materials
 
 create trigger clients_updated_at before update on clients
   for each row execute function set_updated_at();
+
+-- Job attachments: private Storage bucket for room photos and material
+-- receipts (see src/lib/attachments.js), one bucket shared by all users
+-- since RLS on the path itself does the isolation. Path convention is
+-- {user_id}/{job_id}/{file} — every policy below keys off the first path
+-- segment matching the requesting user, same "own rows only" model as
+-- every table above, just expressed for storage.objects instead of a
+-- table. Created via the Storage UI in this project (a bucket insert via
+-- plain SQL is equivalent if setting this up elsewhere):
+--
+-- insert into storage.buckets (id, name, public) values ('job-attachments', 'job-attachments', false);
+--
+-- create policy "own job attachments" on storage.objects for all
+--   using (bucket_id = 'job-attachments' and (storage.foldername(name))[1] = (select auth.uid()::text))
+--   with check (bucket_id = 'job-attachments' and (storage.foldername(name))[1] = (select auth.uid()::text));

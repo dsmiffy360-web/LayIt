@@ -7,6 +7,7 @@ import { listClients, createClient, deleteClient, listJobsForClient } from "../.
 import { Field } from "../shared/Field";
 import { TextField } from "../shared/TextField";
 import { ConfirmButton } from "../shared/ConfirmButton";
+import { AttachmentsSection } from "../shared/Attachments";
 
 let lineItemIdCounter = 1000;
 
@@ -304,6 +305,8 @@ export function InvoiceStep({ job, updateJob, jobId, jobName, clientName, setCli
         {paymentStatus === "deposit" && <Field label="Deposit amount received" value={depositAmount} onChange={(v) => updateJob({ depositAmount: v })} step="0.01" />}
         {depositExceedsTotal && <p style={{ fontSize: 12, color: COLORS.wasteText, marginTop: 8, marginBottom: 0 }}>This deposit is more than the invoice total ({total.toFixed(2)}) — double check the amount.</p>}
       </section>
+
+      <AttachmentsSection job={job} jobId={jobId} updateJob={updateJob} />
 
       <section style={{ background: COLORS.panel, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 18, marginBottom: 14 }}>
         <div style={{ fontFamily: "Space Grotesk", fontWeight: 600, fontSize: 15, marginBottom: 12 }}>Extra costs</div>
