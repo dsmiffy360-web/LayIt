@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { COLORS } from "../../lib/colors";
-import { computeJobInvoiceTotal } from "../../lib/invoiceTotal";
+import { computeJobInvoiceTotal, jobRevenueDate } from "../../lib/invoiceTotal";
 import { getBusinessProfile, saveBusinessProfile } from "../../lib/jobsApi";
 import { resizeImageToDataUri } from "../../lib/exportUtils";
 import { listClients, createClient, deleteClient, listJobsForClient } from "../../lib/clients";
@@ -235,12 +235,27 @@ export function InvoiceStep({ job, updateJob, jobId, jobName, clientName, setCli
               Previous jobs for {clientName}
             </span>
             <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 6 }}>
-              {clientHistory.map((h) => (
-                <div key={h.id} style={{ display: "flex", justifyContent: "space-between", fontSize: 12 }}>
-                  <span style={{ color: COLORS.ink }}>{h.name}</span>
-                  <span style={{ color: COLORS.sub, fontFamily: "JetBrains Mono", textTransform: "capitalize" }}>{h.status}</span>
-                </div>
-              ))}
+              {clientHistory.map((h) => {
+                let value = null;
+                if (h.status === "complete" && h.jobData) {
+                  try {
+                    value = computeJobInvoiceTotal(h.jobData).total;
+                  } catch {
+                    value = null;
+                  }
+                }
+                return (
+                  <div key={h.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", fontSize: 12 }}>
+                    <span style={{ color: COLORS.ink }}>{h.name}</span>
+                    <span style={{ color: COLORS.sub, fontFamily: "JetBrains Mono", fontSize: 11 }}>
+                      {new Date(jobRevenueDate(h)).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
+                    </span>
+                    <span style={{ color: COLORS.sub, fontFamily: "JetBrains Mono", textTransform: "capitalize" }}>
+                      {value !== null ? value.toFixed(2) : h.status}
+                    </span>
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}

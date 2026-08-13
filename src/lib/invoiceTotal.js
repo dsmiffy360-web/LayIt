@@ -68,6 +68,22 @@ export function computeMaterialsAmount(job) {
   return { amount: bufferedPacks * price, bufferedPacks, price, packLabel: job.materialType === "tile" ? "box" : "pack" };
 }
 
+// A job's date for revenue/tax tracking. Prefers the invoice date (entered
+// once on the Invoice step) over last-updated, since last-updated shifts
+// every time the job row is saved — editing a client's phone number months
+// after a job wrapped shouldn't move that job's income into a different
+// tax period. Falls back to last-updated for jobs with no invoice date set.
+// `j` needs { jobData, updatedAt } — the shape both the job-list summary
+// and client-history views already load their jobs in.
+export function jobRevenueDate(j) {
+  const inv = j.jobData?.invoiceDate;
+  if (inv) {
+    const d = new Date(inv);
+    if (!isNaN(d.getTime())) return d.getTime();
+  }
+  return j.updatedAt;
+}
+
 // Full invoice total for a job — same math as InvoiceStep.jsx's live
 // preview, extracted here so other views (e.g. the job-list revenue
 // summary) use the exact same numbers rather than a second calculation

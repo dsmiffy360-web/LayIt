@@ -30,14 +30,17 @@ export async function deleteClient(id) {
 
 // Every other job (any status, archived or not) linked to this client,
 // excluding the one currently open — the "history" a repeat client builds up.
+// Includes `data` (jobData) and `updatedAt` so callers can show a date/value
+// per past job via jobRevenueDate()/computeJobInvoiceTotal(), same as the
+// job-list Summary page.
 export async function listJobsForClient(clientId, excludeJobId) {
   let query = supabase
     .from("jobs")
-    .select("id, name, status, updated_at")
+    .select("id, name, status, updated_at, data")
     .eq("client_id", clientId)
     .order("updated_at", { ascending: false });
   if (excludeJobId) query = query.neq("id", excludeJobId);
   const { data, error } = await query;
   if (error) throw error;
-  return data;
+  return data.map((j) => ({ id: j.id, name: j.name, status: j.status, updatedAt: new Date(j.updated_at).getTime(), jobData: j.data }));
 }

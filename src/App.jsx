@@ -2,7 +2,8 @@ import { useState, useEffect } from "react";
 import { onAuthChange, signInWithEmail, signInWithGoogle, signOut, getCurrentUser } from "./lib/auth";
 import { listJobs, createJob, duplicateJob, deleteJob, toggleArchiveJob } from "./lib/jobsApi";
 import { getSubscriptionStatus, isContractorPlan, startCheckout, openBillingPortal, FREE_TIER_JOB_LIMIT } from "./lib/subscription";
-import { computeJobInvoiceTotal } from "./lib/invoiceTotal";
+import { computeJobInvoiceTotal, jobRevenueDate } from "./lib/invoiceTotal";
+import { downloadTextFile, csvField } from "./lib/exportUtils";
 import { JobWorkspace } from "./components/JobWorkspace";
 import { LandingPage } from "./components/LandingPage";
 import { COLORS } from "./lib/colors";
@@ -19,20 +20,6 @@ function periodStart(period) {
   }
   if (period === "year") return new Date(now.getFullYear(), 0, 1).getTime();
   return new Date(now.getFullYear(), now.getMonth(), 1).getTime();
-}
-
-// A job's date for revenue/tax tracking. Prefers the invoice date (entered
-// once on the Invoice step) over last-updated, since last-updated shifts
-// every time the job row is saved — editing a client's phone number months
-// after a job wrapped shouldn't move that job's income into a different
-// tax period. Falls back to last-updated for jobs with no invoice date set.
-function jobRevenueDate(j) {
-  const inv = j.jobData?.invoiceDate;
-  if (inv) {
-    const d = new Date(inv);
-    if (!isNaN(d.getTime())) return d.getTime();
-  }
-  return j.updatedAt;
 }
 
 const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -242,6 +229,14 @@ function JobList({ user, onOpenJob, subscription, setSubscription }) {
     })
     .sort((a, b) => b.revenueDate - a.revenueDate);
 
+  const handleExportCsv = () => {
+    const header = ["Job", "Client", "Date", "Amount"].map(csvField).join(",");
+    const rows = paidJobsInYear.map((j) =>
+      [j.name, j.client || "", new Date(j.revenueDate).toISOString().slice(0, 10), j.value.toFixed(2)].map(csvField).join(",")
+    );
+    downloadTextFile([header, ...rows].join("\n"), `layit-paid-jobs-${breakdownYear}.csv`, "text/csv");
+  };
+
   const handleCreate = async () => {
     if (atFreeLimit) return;
     try {
@@ -413,8 +408,18 @@ function JobList({ user, onOpenJob, subscription, setSubscription }) {
         </section>
 
         <section style={{ background: COLORS.panel, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: "4px 16px", marginBottom: 16 }}>
-          <div style={{ fontFamily: "Space Grotesk", fontWeight: 600, fontSize: 14, color: COLORS.ink, padding: "12px 0 6px" }}>
-            Paid jobs — {breakdownYear} ({paidJobsInYear.length})
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 0 6px" }}>
+            <span style={{ fontFamily: "Space Grotesk", fontWeight: 600, fontSize: 14, color: COLORS.ink }}>
+              Paid jobs — {breakdownYear} ({paidJobsInYear.length})
+            </span>
+            {paidJobsInYear.length > 0 && (
+              <button
+                onClick={handleExportCsv}
+                style={{ minHeight: 28, borderRadius: 6, border: `1px solid ${COLORS.border}`, background: "#FBFAF7", color: COLORS.sub, fontFamily: "JetBrains Mono", fontSize: 11, fontWeight: 600, cursor: "pointer", padding: "0 10px" }}
+              >
+                Export CSV
+              </button>
+            )}
           </div>
           {paidJobsInYear.map((j, i, arr) => (
             <button
