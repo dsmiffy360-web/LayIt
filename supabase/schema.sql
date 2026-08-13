@@ -85,6 +85,22 @@ create table subscriptions (
   updated_at timestamptz default now()
 );
 
+-- Push subscriptions: one row per browser/device a user has enabled job
+-- reminders on (a phone and a laptop each get their own row). Written by
+-- the client when the user opts in via pushNotifications.js, read by
+-- /api/send-reminders (service role, bypasses RLS) to deliver the
+-- same-day "job scheduled today" nudge.
+create table push_subscriptions (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references auth.users(id) on delete cascade not null,
+  endpoint text not null unique,
+  p256dh text not null,
+  auth text not null,
+  created_at timestamptz default now()
+);
+
+create index push_subscriptions_user_id_idx on push_subscriptions(user_id);
+
 -- Row Level Security: every table is scoped to auth.uid() so one user's
 -- Supabase client can only ever see their own rows, enforced at the
 -- database layer regardless of what the client code does.
@@ -92,6 +108,7 @@ alter table business_profiles enable row level security;
 alter table jobs enable row level security;
 alter table subscriptions enable row level security;
 alter table saved_materials enable row level security;
+alter table push_subscriptions enable row level security;
 alter table clients enable row level security;
 
 create policy "own business profile" on business_profiles
@@ -104,6 +121,9 @@ create policy "own saved materials" on saved_materials
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
 create policy "own clients" on clients
+  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+create policy "own push subscriptions" on push_subscriptions
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
 create policy "own subscription read" on subscriptions

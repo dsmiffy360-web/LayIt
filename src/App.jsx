@@ -4,6 +4,7 @@ import { listJobs, createJob, duplicateJob, deleteJob, toggleArchiveJob } from "
 import { getSubscriptionStatus, isContractorPlan, startCheckout, openBillingPortal, FREE_TIER_JOB_LIMIT } from "./lib/subscription";
 import { computeJobInvoiceTotal, jobRevenueDate } from "./lib/invoiceTotal";
 import { downloadTextFile, csvField } from "./lib/exportUtils";
+import { getPushStatus, subscribeToPushNotifications, unsubscribeFromPushNotifications } from "./lib/pushNotifications";
 import { JobWorkspace } from "./components/JobWorkspace";
 import { LandingPage } from "./components/LandingPage";
 import { COLORS } from "./lib/colors";
@@ -92,6 +93,67 @@ function SignInScreen({ onBack }) {
           </>
         )}
       </section>
+    </div>
+  );
+}
+
+// Job reminders toggle — Contractor-only (scheduling itself already is),
+// renders nothing on unsupported browsers rather than a dead button.
+// Status is per-device (this is a per-browser push subscription, not an
+// account-wide setting), so it re-checks on mount rather than trusting
+// any cached value.
+function ReminderToggle({ onContractorPlan }) {
+  const [status, setStatus] = useState(null); // null = still checking
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (!onContractorPlan) return;
+    getPushStatus().then(setStatus).catch(() => setStatus("unsupported"));
+  }, [onContractorPlan]);
+
+  if (!onContractorPlan || status === null || status === "unsupported") return null;
+
+  const handleToggle = async () => {
+    setBusy(true);
+    setError("");
+    try {
+      if (status === "subscribed") {
+        await unsubscribeFromPushNotifications();
+        setStatus("unsubscribed");
+      } else {
+        await subscribeToPushNotifications();
+        setStatus("subscribed");
+      }
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div style={{ marginBottom: 16 }}>
+      <button
+        onClick={handleToggle}
+        disabled={busy || status === "denied"}
+        style={{
+          minHeight: 36, borderRadius: 8, border: `1px solid ${status === "subscribed" ? COLORS.reuse : COLORS.border}`,
+          background: status === "subscribed" ? "#F0EEE7" : "#FBFAF7",
+          color: status === "subscribed" ? COLORS.reuse : COLORS.sub,
+          fontFamily: "JetBrains Mono", fontSize: 12, fontWeight: 600, cursor: status === "denied" ? "default" : "pointer",
+          padding: "0 14px", width: "100%",
+        }}
+      >
+        {busy
+          ? "Working…"
+          : status === "subscribed"
+          ? "✓ Job reminders on for this device"
+          : status === "denied"
+          ? "Notifications blocked — enable them in your browser settings"
+          : "Enable job reminders on this device"}
+      </button>
+      {error && <p style={{ fontFamily: "Inter", fontSize: 12, color: COLORS.wasteText, marginTop: 6 }}>{error}</p>}
     </div>
   );
 }
@@ -505,6 +567,8 @@ function JobList({ user, onOpenJob, subscription, setSubscription }) {
           </button>
         )}
       </div>
+
+      <ReminderToggle onContractorPlan={onContractorPlan} />
 
       {checkoutNotice && (
         <p style={{ fontFamily: "Inter", fontSize: 13, color: COLORS.sub, background: "#F0EEE7", borderRadius: 8, padding: "10px 12px", marginBottom: 16 }}>{checkoutNotice}</p>

@@ -10,6 +10,21 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: "autoUpdate",
+      // Hand-written service worker (src/sw.js) instead of a fully
+      // generated one, so it can also handle push/notificationclick for
+      // job reminders — vite-plugin-pwa still injects the precache
+      // manifest into it at build time.
+      strategies: "injectManifest",
+      srcDir: "src",
+      filename: "sw.js",
+      injectManifest: {
+        // App shell + static assets only — never cache API/data responses,
+        // so job data always comes from Supabase, not a stale cache.
+        globPatterns: ["**/*.{js,css,html,svg,png,ico}"],
+      },
+      // Active under `vite dev` too, not just production builds — lets
+      // push notifications be tested against localhost without a deploy.
+      devOptions: { enabled: true, type: "module" },
       includeAssets: ["favicon.svg", "apple-touch-icon.png"],
       manifest: {
         name: "LayIt",
@@ -24,11 +39,6 @@ export default defineConfig({
           { src: "icon-512.png", sizes: "512x512", type: "image/png" },
           { src: "icon-512-maskable.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
         ],
-      },
-      workbox: {
-        // App shell + static assets only — never cache API/data responses,
-        // so job data always comes from Supabase, not a stale cache.
-        globPatterns: ["**/*.{js,css,html,svg,png,ico}"],
       },
     }),
   ],
