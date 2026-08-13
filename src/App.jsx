@@ -4,6 +4,7 @@ import { listJobs, createJob, duplicateJob, deleteJob, toggleArchiveJob } from "
 import { getSubscriptionStatus, isContractorPlan, startCheckout, openBillingPortal, FREE_TIER_JOB_LIMIT } from "./lib/subscription";
 import { computeJobInvoiceTotal, jobRevenueDate } from "./lib/invoiceTotal";
 import { downloadTextFile, csvField } from "./lib/exportUtils";
+import { ConfirmButton } from "./components/shared/ConfirmButton";
 import { getPushStatus, subscribeToPushNotifications, unsubscribeFromPushNotifications } from "./lib/pushNotifications";
 import { JobWorkspace } from "./components/JobWorkspace";
 import { LandingPage } from "./components/LandingPage";
@@ -659,9 +660,16 @@ function JobList({ user, onOpenJob, subscription, setSubscription }) {
               <button style={rowButtonStyle} onClick={async () => {
                 try { await toggleArchiveJob(j.id, true); refresh(); } catch (err) { setError(err.message); }
               }}>Archive</button>
-              <button style={{ ...rowButtonStyle, color: COLORS.wasteText }} onClick={async () => {
-                try { await deleteJob(j.id); refresh(); } catch (err) { setError(err.message); }
-              }}>Delete</button>
+              <ConfirmButton
+                onConfirm={async () => {
+                  try { await deleteJob(j.id); refresh(); } catch (err) { setError(err.message); }
+                }}
+                armedLabel="Confirm?"
+                ariaLabel={`Delete ${j.name}`}
+                style={{ ...rowButtonStyle, color: COLORS.wasteText }}
+              >
+                Delete
+              </ConfirmButton>
             </div>
           </div>
         ))}
@@ -691,9 +699,16 @@ function JobList({ user, onOpenJob, subscription, setSubscription }) {
                 <button style={rowButtonStyle} onClick={async () => {
                   try { await toggleArchiveJob(j.id, false); refresh(); } catch (err) { setError(err.message); }
                 }}>Unarchive</button>
-                <button style={{ ...rowButtonStyle, color: COLORS.wasteText }} onClick={async () => {
-                  try { await deleteJob(j.id); refresh(); } catch (err) { setError(err.message); }
-                }}>Delete</button>
+                <ConfirmButton
+                  onConfirm={async () => {
+                    try { await deleteJob(j.id); refresh(); } catch (err) { setError(err.message); }
+                  }}
+                  armedLabel="Confirm?"
+                  ariaLabel={`Delete ${j.name}`}
+                  style={{ ...rowButtonStyle, color: COLORS.wasteText }}
+                >
+                  Delete
+                </ConfirmButton>
               </div>
             </div>
           ))}
@@ -717,12 +732,20 @@ export default function App() {
 
   useEffect(() => {
     getCurrentUser().then(setUser);
-    return onAuthChange(setUser);
+    // Supabase fires onAuthStateChange on more than just sign-in/sign-out —
+    // token refresh and tab-focus session revalidation trigger it too, each
+    // time with a brand-new (but often unchanged) user object. Bailing out
+    // when the id hasn't actually changed keeps the rest of the app from
+    // re-rendering on every one of those, which otherwise cascades all the
+    // way down to things like ConfirmButton's local "armed" state.
+    return onAuthChange((u) => {
+      setUser((prev) => (prev && u && prev.id === u.id ? prev : u));
+    });
   }, []);
 
   useEffect(() => {
     if (user) getSubscriptionStatus(user.id).then(setSubscription).catch(() => {});
-  }, [user]);
+  }, [user?.id]);
 
   if (user === undefined) return null; // brief auth check, avoid a flash of the sign-in screen
   if (!user) {
