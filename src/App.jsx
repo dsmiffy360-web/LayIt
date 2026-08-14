@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { onAuthChange, signInWithEmail, signInWithGoogle, signOut, getCurrentUser } from "./lib/auth";
-import { listJobs, createJob, duplicateJob, deleteJob, toggleArchiveJob } from "./lib/jobsApi";
+import { listJobs, createJob, duplicateJob, deleteJob, toggleArchiveJob, getBusinessProfile } from "./lib/jobsApi";
+import { formatMoney } from "./lib/currency";
 import { getSubscriptionStatus, isContractorPlan, startCheckout, openBillingPortal, FREE_TIER_JOB_LIMIT } from "./lib/subscription";
 import { computeJobInvoiceTotal, jobRevenueDate } from "./lib/invoiceTotal";
 import { downloadTextFile, csvField } from "./lib/exportUtils";
@@ -171,6 +172,9 @@ function JobList({ user, onOpenJob, subscription, setSubscription }) {
   const [breakdownYear, setBreakdownYear] = useState(new Date().getFullYear());
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  // Same currency the Invoice step's business profile uses, so a job's
+  // value reads the same way here as it does on its own invoice.
+  const [currency, setCurrency] = useState("USD");
 
   const refresh = async () => {
     try {
@@ -182,6 +186,7 @@ function JobList({ user, onOpenJob, subscription, setSubscription }) {
 
   useEffect(() => {
     refresh();
+    getBusinessProfile().then((p) => setCurrency(p.currency || "USD")).catch(() => {});
 
     const checkout = new URLSearchParams(window.location.search).get("checkout");
     if (checkout === "success") {
@@ -310,9 +315,12 @@ function JobList({ user, onOpenJob, subscription, setSubscription }) {
     .sort((a, b) => b.revenueDate - a.revenueDate);
 
   const handleExportCsv = () => {
-    const header = ["Job", "Client", "Date", "Amount"].map(csvField).join(",");
+    // Amount stays a plain decimal (not a formatted "$1,234.56" string) so
+    // spreadsheet/accounting software can read it as a number straight
+    // away — the currency code is its own column instead.
+    const header = ["Job", "Client", "Date", "Amount", "Currency"].map(csvField).join(",");
     const rows = paidJobsInYear.map((j) =>
-      [j.name, j.client || "", new Date(j.revenueDate).toISOString().slice(0, 10), j.value.toFixed(2)].map(csvField).join(",")
+      [j.name, j.client || "", new Date(j.revenueDate).toISOString().slice(0, 10), j.value.toFixed(2), currency].map(csvField).join(",")
     );
     downloadTextFile([header, ...rows].join("\n"), `layit-paid-jobs-${breakdownYear}.csv`, "text/csv");
   };
@@ -423,11 +431,11 @@ function JobList({ user, onOpenJob, subscription, setSubscription }) {
             </div>
             <div style={{ background: "#FBFAF7", borderRadius: 8, padding: "10px 12px", borderLeft: `3px solid ${COLORS.wood1}` }}>
               <div style={{ fontFamily: "Inter", fontSize: 11, color: COLORS.sub, textTransform: "uppercase" }}>Value of work</div>
-              <div style={{ fontFamily: "JetBrains Mono", fontSize: 20, fontWeight: 600, marginTop: 2 }}>{summaryValue.toFixed(2)}</div>
+              <div style={{ fontFamily: "JetBrains Mono", fontSize: 20, fontWeight: 600, marginTop: 2 }}>{formatMoney(summaryValue, currency)}</div>
             </div>
             <div style={{ background: "#FBFAF7", borderRadius: 8, padding: "10px 12px", borderLeft: `3px solid ${COLORS.accent}`, gridColumn: "1 / -1" }}>
               <div style={{ fontFamily: "Inter", fontSize: 11, color: COLORS.sub, textTransform: "uppercase" }}>Average job value</div>
-              <div style={{ fontFamily: "JetBrains Mono", fontSize: 20, fontWeight: 600, marginTop: 2 }}>{avgJobValue.toFixed(2)}</div>
+              <div style={{ fontFamily: "JetBrains Mono", fontSize: 20, fontWeight: 600, marginTop: 2 }}>{formatMoney(avgJobValue, currency)}</div>
             </div>
           </div>
         </section>
@@ -436,7 +444,7 @@ function JobList({ user, onOpenJob, subscription, setSubscription }) {
           <div style={{ fontFamily: "Space Grotesk", fontWeight: 600, fontSize: 14, color: COLORS.ink, marginBottom: 12 }}>Right now</div>
           <div style={{ background: "#FBFAF7", borderRadius: 8, padding: "10px 12px", borderLeft: `3px solid ${COLORS.wasteText}`, marginBottom: 10 }}>
             <div style={{ fontFamily: "Inter", fontSize: 11, color: COLORS.sub, textTransform: "uppercase" }}>Outstanding balance</div>
-            <div style={{ fontFamily: "JetBrains Mono", fontSize: 20, fontWeight: 600, marginTop: 2 }}>{outstandingBalance.toFixed(2)}</div>
+            <div style={{ fontFamily: "JetBrains Mono", fontSize: 20, fontWeight: 600, marginTop: 2 }}>{formatMoney(outstandingBalance, currency)}</div>
             <div style={{ fontFamily: "Inter", fontSize: 11, color: COLORS.sub, marginTop: 4 }}>Across jobs in progress or complete that aren't fully paid</div>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
@@ -478,12 +486,12 @@ function JobList({ user, onOpenJob, subscription, setSubscription }) {
             >
               <span style={{ fontFamily: "JetBrains Mono", fontSize: 13, color: m.count ? COLORS.ink : COLORS.sub }}>{m.label}</span>
               <span style={{ fontFamily: "Inter", fontSize: 11, color: COLORS.sub }}>{m.count ? `${m.count} job${m.count === 1 ? "" : "s"}` : "—"}</span>
-              <span style={{ fontFamily: "JetBrains Mono", fontSize: 13, fontWeight: 600, color: m.count ? COLORS.ink : COLORS.sub, textAlign: "right" }}>{m.value.toFixed(2)}</span>
+              <span style={{ fontFamily: "JetBrains Mono", fontSize: 13, fontWeight: 600, color: m.count ? COLORS.ink : COLORS.sub, textAlign: "right" }}>{formatMoney(m.value, currency)}</span>
             </div>
           ))}
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0 0", marginTop: 6, borderTop: `2px solid ${COLORS.border}` }}>
             <span style={{ fontFamily: "Space Grotesk", fontWeight: 600, fontSize: 13, color: COLORS.ink }}>{breakdownYear} total</span>
-            <span style={{ fontFamily: "JetBrains Mono", fontSize: 15, fontWeight: 700, color: COLORS.accentText }}>{yearTotal.toFixed(2)}</span>
+            <span style={{ fontFamily: "JetBrains Mono", fontSize: 15, fontWeight: 700, color: COLORS.accentText }}>{formatMoney(yearTotal, currency)}</span>
           </div>
         </section>
 
@@ -512,7 +520,7 @@ function JobList({ user, onOpenJob, subscription, setSubscription }) {
                 {j.client && <div style={{ fontFamily: "Inter", fontSize: 11, color: COLORS.sub, marginTop: 2 }}>{j.client}</div>}
               </div>
               <div style={{ textAlign: "right" }}>
-                <div style={{ fontFamily: "JetBrains Mono", fontSize: 13, fontWeight: 600, color: COLORS.reuse }}>{j.value.toFixed(2)}</div>
+                <div style={{ fontFamily: "JetBrains Mono", fontSize: 13, fontWeight: 600, color: COLORS.reuse }}>{formatMoney(j.value, currency)}</div>
                 <div style={{ fontFamily: "Inter", fontSize: 11, color: COLORS.sub, marginTop: 2 }}>
                   {new Date(j.revenueDate).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
                 </div>

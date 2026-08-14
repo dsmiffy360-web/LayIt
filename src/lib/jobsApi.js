@@ -1,5 +1,6 @@
 import { supabase } from "./supabaseClient";
 import { deleteAllAttachmentsForJob } from "./attachments";
+import { guessDefaultCurrency } from "./currency";
 
 // This module is the direct replacement for the artifact's window.storage
 // calls (job-index, job-{id}, active-job-id). Function names and shapes
@@ -105,9 +106,9 @@ export async function deleteJob(jobId) {
 }
 
 export async function getBusinessProfile() {
-  const { data, error } = await supabase.from("business_profiles").select("name, contact, bank_details, logo").maybeSingle();
+  const { data, error } = await supabase.from("business_profiles").select("name, contact, bank_details, logo, currency").maybeSingle();
   if (error) throw error;
-  return data || { name: "", contact: "", bank_details: "", logo: null };
+  return data || { name: "", contact: "", bank_details: "", logo: null, currency: guessDefaultCurrency() };
 }
 
 export async function saveBusinessProfile(profile) {

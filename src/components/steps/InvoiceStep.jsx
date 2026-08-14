@@ -9,11 +9,12 @@ import { TextField } from "../shared/TextField";
 import { ConfirmButton } from "../shared/ConfirmButton";
 import { AttachmentsSection } from "../shared/Attachments";
 import { generateInvoicePdf } from "../../lib/pdfInvoice";
+import { CURRENCIES, formatMoney, guessDefaultCurrency } from "../../lib/currency";
 
 let lineItemIdCounter = 1000;
 
 export function InvoiceStep({ job, updateJob, jobId, jobName, clientName, setClientName, clientId, setClientId }) {
-  const [business, setBusiness] = useState({ name: "", contact: "", bank_details: "", logo: null });
+  const [business, setBusiness] = useState({ name: "", contact: "", bank_details: "", logo: null, currency: guessDefaultCurrency() });
   const [copyStatus, setCopyStatus] = useState("");
   const [logoError, setLogoError] = useState("");
 
@@ -106,6 +107,7 @@ export function InvoiceStep({ job, updateJob, jobId, jobName, clientName, setCli
   const depositPaid = paymentStatus === "deposit" ? Math.max(0, parseFloat(depositAmount) || 0) : 0;
   const depositExceedsTotal = paymentStatus === "deposit" && depositPaid > total + 0.01;
   const balanceDue = paymentStatus === "paid" ? 0 : Math.max(0, total - depositPaid);
+  const money = (amount) => formatMoney(amount, business.currency);
 
   const addLineItem = () => {
     lineItemIdCounter += 1;
@@ -128,17 +130,17 @@ export function InvoiceStep({ job, updateJob, jobId, jobName, clientName, setCli
     lines.push(`Job: ${jobName}`);
     lines.push("");
     lines.push("Line items:");
-    if (materials) lines.push(`  Materials — ${materials.bufferedPacks} ${materials.packLabel}${materials.bufferedPacks === 1 ? "" : "s"} × ${materials.price.toFixed(2)}: ${materialsAmount.toFixed(2)}`);
-    if (laborAmount > 0) lines.push(`  Labor / installation: ${laborAmount.toFixed(2)}`);
-    extraLineItems.forEach((li) => { if (li.desc || li.amount) lines.push(`  ${li.desc || "Line item"}: ${(parseFloat(li.amount) || 0).toFixed(2)}`); });
+    if (materials) lines.push(`  Materials — ${materials.bufferedPacks} ${materials.packLabel}${materials.bufferedPacks === 1 ? "" : "s"} × ${money(materials.price)}: ${money(materialsAmount)}`);
+    if (laborAmount > 0) lines.push(`  Labor / installation: ${money(laborAmount)}`);
+    extraLineItems.forEach((li) => { if (li.desc || li.amount) lines.push(`  ${li.desc || "Line item"}: ${money(parseFloat(li.amount) || 0)}`); });
     lines.push("");
-    lines.push(`Subtotal: ${subtotal.toFixed(2)}`);
-    if (taxPct > 0) lines.push(`Tax (${taxPct}%): ${tax.toFixed(2)}`);
-    lines.push(`Total: ${total.toFixed(2)}`);
+    lines.push(`Subtotal: ${money(subtotal)}`);
+    if (taxPct > 0) lines.push(`Tax (${taxPct}%): ${money(tax)}`);
+    lines.push(`Total: ${money(total)}`);
     if (paymentStatus === "paid") lines.push("Status: PAID");
     else {
-      if (paymentStatus === "deposit") lines.push(`Deposit received: ${depositPaid.toFixed(2)}`);
-      lines.push(`Balance due: ${balanceDue.toFixed(2)}`);
+      if (paymentStatus === "deposit") lines.push(`Deposit received: ${money(depositPaid)}`);
+      lines.push(`Balance due: ${money(balanceDue)}`);
     }
     if (invoiceNotes) { lines.push(""); lines.push(invoiceNotes); }
     if (business.bank_details) { lines.push(""); lines.push("Payment details:"); lines.push(business.bank_details); }
@@ -172,6 +174,20 @@ export function InvoiceStep({ job, updateJob, jobId, jobName, clientName, setCli
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           <TextField label="Business / your name" value={business.name} onChange={(v) => updateBusiness({ name: v })} />
           <TextField label="Contact (phone, email, or address)" value={business.contact} onChange={(v) => updateBusiness({ contact: v })} />
+          <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            <span style={{ fontFamily: "Inter", fontSize: 12, fontWeight: 600, color: COLORS.sub, textTransform: "uppercase", letterSpacing: "0.04em" }}>
+              Currency
+            </span>
+            <select
+              value={business.currency || "USD"}
+              onChange={(e) => updateBusiness({ currency: e.target.value })}
+              style={{ fontFamily: "Inter", fontSize: 14, minHeight: 44, padding: "0 12px", borderRadius: 8, border: `1px solid ${COLORS.border}`, background: "#FBFAF7", color: COLORS.ink, width: "100%" }}
+            >
+              {CURRENCIES.map((c) => (
+                <option key={c.code} value={c.code}>{c.label}</option>
+              ))}
+            </select>
+          </label>
           <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
             <span style={{ fontFamily: "Inter", fontSize: 12, fontWeight: 600, color: COLORS.sub, textTransform: "uppercase", letterSpacing: "0.04em" }}>
               Bank details (for client payment)
@@ -263,7 +279,7 @@ export function InvoiceStep({ job, updateJob, jobId, jobName, clientName, setCli
                       {new Date(jobRevenueDate(h)).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
                     </span>
                     <span style={{ color: COLORS.sub, fontFamily: "JetBrains Mono", textTransform: "capitalize" }}>
-                      {value !== null ? value.toFixed(2) : h.status}
+                      {value !== null ? money(value) : h.status}
                     </span>
                   </div>
                 );
@@ -314,7 +330,7 @@ export function InvoiceStep({ job, updateJob, jobId, jobName, clientName, setCli
           ))}
         </div>
         {paymentStatus === "deposit" && <Field label="Deposit amount received" value={depositAmount} onChange={(v) => updateJob({ depositAmount: v })} step="0.01" />}
-        {depositExceedsTotal && <p style={{ fontSize: 12, color: COLORS.wasteText, marginTop: 8, marginBottom: 0 }}>This deposit is more than the invoice total ({total.toFixed(2)}) — double check the amount.</p>}
+        {depositExceedsTotal && <p style={{ fontSize: 12, color: COLORS.wasteText, marginTop: 8, marginBottom: 0 }}>This deposit is more than the invoice total ({money(total)}) — double check the amount.</p>}
       </section>
 
       <AttachmentsSection job={job} jobId={jobId} updateJob={updateJob} />
@@ -370,27 +386,27 @@ export function InvoiceStep({ job, updateJob, jobId, jobName, clientName, setCli
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {materials && (
             <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
-              <span>Materials — {materials.bufferedPacks} {materials.packLabel}{materials.bufferedPacks === 1 ? "" : "s"} × {materials.price.toFixed(2)}</span>
-              <span style={{ fontFamily: "JetBrains Mono" }}>{materialsAmount.toFixed(2)}</span>
+              <span>Materials — {materials.bufferedPacks} {materials.packLabel}{materials.bufferedPacks === 1 ? "" : "s"} × {money(materials.price)}</span>
+              <span style={{ fontFamily: "JetBrains Mono" }}>{money(materialsAmount)}</span>
             </div>
           )}
-          {laborAmount > 0 && <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}><span>Labor / installation</span><span style={{ fontFamily: "JetBrains Mono" }}>{laborAmount.toFixed(2)}</span></div>}
+          {laborAmount > 0 && <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}><span>Labor / installation</span><span style={{ fontFamily: "JetBrains Mono" }}>{money(laborAmount)}</span></div>}
           {extraLineItems.filter((li) => li.desc || li.amount).map((li) => (
-            <div key={li.id} style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}><span>{li.desc || "Line item"}</span><span style={{ fontFamily: "JetBrains Mono" }}>{(parseFloat(li.amount) || 0).toFixed(2)}</span></div>
+            <div key={li.id} style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}><span>{li.desc || "Line item"}</span><span style={{ fontFamily: "JetBrains Mono" }}>{money(parseFloat(li.amount) || 0)}</span></div>
           ))}
           {!materials && laborAmount === 0 && extraLineItems.length === 0 && (
             <p style={{ fontSize: 12, color: COLORS.sub, margin: 0 }}>Add a price on Material, a labor cost above, or a line item to build the invoice.</p>
           )}
         </div>
         <div style={{ borderTop: `1px solid ${COLORS.border}`, marginTop: 12, paddingTop: 12, display: "flex", flexDirection: "column", gap: 4 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: COLORS.sub }}><span>Subtotal</span><span style={{ fontFamily: "JetBrains Mono" }}>{subtotal.toFixed(2)}</span></div>
-          {taxPct > 0 && <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: COLORS.sub }}><span>Tax ({taxPct}%)</span><span style={{ fontFamily: "JetBrains Mono" }}>{tax.toFixed(2)}</span></div>}
-          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 20, fontWeight: 700, marginTop: 4, fontFamily: "Space Grotesk" }}><span>Total</span><span style={{ fontFamily: "JetBrains Mono", color: COLORS.accentText }}>{total.toFixed(2)}</span></div>
-          {paymentStatus === "deposit" && <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: COLORS.sub }}><span>Deposit received</span><span style={{ fontFamily: "JetBrains Mono" }}>−{depositPaid.toFixed(2)}</span></div>}
+          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: COLORS.sub }}><span>Subtotal</span><span style={{ fontFamily: "JetBrains Mono" }}>{money(subtotal)}</span></div>
+          {taxPct > 0 && <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: COLORS.sub }}><span>Tax ({taxPct}%)</span><span style={{ fontFamily: "JetBrains Mono" }}>{money(tax)}</span></div>}
+          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 20, fontWeight: 700, marginTop: 4, fontFamily: "Space Grotesk" }}><span>Total</span><span style={{ fontFamily: "JetBrains Mono", color: COLORS.accentText }}>{money(total)}</span></div>
+          {paymentStatus === "deposit" && <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: COLORS.sub }}><span>Deposit received</span><span style={{ fontFamily: "JetBrains Mono" }}>−{money(depositPaid)}</span></div>}
           {paymentStatus === "paid" ? (
             <div style={{ fontSize: 14, fontWeight: 700, color: COLORS.reuse, marginTop: 4 }}>PAID IN FULL</div>
           ) : (
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14, fontWeight: 700, color: COLORS.wasteText, marginTop: 4 }}><span>Balance due</span><span style={{ fontFamily: "JetBrains Mono" }}>{balanceDue.toFixed(2)}</span></div>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14, fontWeight: 700, color: COLORS.wasteText, marginTop: 4 }}><span>Balance due</span><span style={{ fontFamily: "JetBrains Mono" }}>{money(balanceDue)}</span></div>
           )}
         </div>
         {invoiceNotes && <p style={{ fontSize: 12, color: COLORS.sub, marginTop: 16, borderTop: `1px dashed ${COLORS.border}`, paddingTop: 12 }}>{invoiceNotes}</p>}

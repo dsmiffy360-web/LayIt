@@ -1,4 +1,5 @@
 import jsPDF from "jspdf";
+import { formatMoney } from "./currency";
 
 // Builds an actual PDF (real text, not a screenshot of the page) so the
 // layout is deliberate and consistent across devices, instead of hoping
@@ -15,6 +16,7 @@ export function generateInvoicePdf({
   const marginX = 20;
   const rightX = 210 - marginX;
   let y = 24;
+  const money = (amount) => formatMoney(amount, business.currency);
 
   const line = (label, amount, opts = {}) => {
     doc.setFont("helvetica", opts.bold ? "bold" : "normal");
@@ -89,12 +91,12 @@ export function generateInvoicePdf({
   const visibleExtras = extraLineItems.filter((li) => li.desc || li.amount);
   if (materials) {
     line(
-      `Materials — ${materials.bufferedPacks} ${materials.packLabel}${materials.bufferedPacks === 1 ? "" : "s"} × ${materials.price.toFixed(2)}`,
-      materialsAmount.toFixed(2)
+      `Materials — ${materials.bufferedPacks} ${materials.packLabel}${materials.bufferedPacks === 1 ? "" : "s"} × ${money(materials.price)}`,
+      money(materialsAmount)
     );
   }
-  if (laborAmount > 0) line("Labor / installation", laborAmount.toFixed(2));
-  visibleExtras.forEach((li) => line(li.desc || "Line item", (parseFloat(li.amount) || 0).toFixed(2)));
+  if (laborAmount > 0) line("Labor / installation", money(laborAmount));
+  visibleExtras.forEach((li) => line(li.desc || "Line item", money(parseFloat(li.amount) || 0)));
   if (!materials && laborAmount === 0 && visibleExtras.length === 0) {
     doc.setTextColor(140);
     doc.text("No line items.", marginX, y);
@@ -105,16 +107,16 @@ export function generateInvoicePdf({
   rule();
 
   doc.setTextColor(90);
-  line("Subtotal", subtotal.toFixed(2));
-  if (taxPct > 0) line(`Tax (${taxPct}%)`, tax.toFixed(2));
+  line("Subtotal", money(subtotal));
+  if (taxPct > 0) line(`Tax (${taxPct}%)`, money(tax));
 
   y += 2;
   doc.setTextColor(20);
-  line("Total", total.toFixed(2), { bold: true, size: 14, gap: 8 });
+  line("Total", money(total), { bold: true, size: 14, gap: 8 });
 
   if (paymentStatus === "deposit") {
     doc.setTextColor(90);
-    line("Deposit received", `−${depositPaid.toFixed(2)}`);
+    line("Deposit received", `−${money(depositPaid)}`);
   }
   if (paymentStatus === "paid") {
     doc.setFont("helvetica", "bold");
@@ -124,7 +126,7 @@ export function generateInvoicePdf({
     y += 8;
   } else {
     doc.setTextColor(180, 60, 50);
-    line("Balance due", balanceDue.toFixed(2), { bold: true, gap: 8 });
+    line("Balance due", money(balanceDue), { bold: true, gap: 8 });
   }
 
   if (invoiceNotes) {

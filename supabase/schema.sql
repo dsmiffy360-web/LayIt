@@ -12,6 +12,7 @@ create table business_profiles (
   contact text default '',
   bank_details text default '',
   logo text default null, -- data URI, resized client-side before saving — Contractor-only (invoicing is gated to that plan already)
+  currency text not null default 'USD', -- ISO 4217 code; see src/lib/currency.js for the picker list and formatting
   updated_at timestamptz default now()
 );
 
