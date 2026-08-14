@@ -134,6 +134,48 @@ create policy "own subscription read" on subscriptions
 -- subscription status. A user's own client should never be able to grant
 -- itself "active".
 
+-- The free-tier job limit (FREE_TIER_JOB_LIMIT in src/lib/subscription.js)
+-- was previously only enforced by disabling buttons in the UI — a free
+-- user could still create unlimited jobs with a direct supabase-js call
+-- from devtools. This trigger is the server-side backstop: it only fires
+-- on the transitions that actually add an active job (a brand-new job, or
+-- un-archiving one), so editing/saving a job a Contractor already has
+-- stays unaffected even after they downgrade past the limit.
+create or replace function enforce_job_limit()
+returns trigger as $$
+declare
+  is_contractor boolean;
+  active_count integer;
+begin
+  if TG_OP = 'UPDATE' and not (OLD.archived = true and NEW.archived = false) then
+    return NEW;
+  end if;
+
+  select exists (
+    select 1 from subscriptions s
+    where s.user_id = NEW.user_id and s.status = 'active' and s.plan = 'contractor'
+  ) into is_contractor;
+
+  if is_contractor then
+    return NEW;
+  end if;
+
+  select count(*) into active_count
+  from jobs j
+  where j.user_id = NEW.user_id and j.archived = false and j.id is distinct from NEW.id;
+
+  if active_count >= 1 then -- FREE_TIER_JOB_LIMIT
+    raise exception 'Free plan is limited to 1 active job. Upgrade to Contractor to add more.';
+  end if;
+
+  return NEW;
+end;
+$$ language plpgsql;
+
+create trigger jobs_enforce_limit
+  before insert or update on jobs
+  for each row execute function enforce_job_limit();
+
 -- Keep updated_at current on every write, so "sort by most recent" (the
 -- job switcher's default order) works without extra client logic.
 create or replace function set_updated_at()

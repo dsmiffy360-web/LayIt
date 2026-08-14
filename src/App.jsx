@@ -704,9 +704,14 @@ function JobList({ user, onOpenJob, subscription, setSubscription }) {
                 {j.client && <div style={{ fontFamily: "Inter", fontSize: 12, color: COLORS.sub, marginTop: 2, opacity: 0.7 }}>{j.client}</div>}
               </div>
               <div style={{ display: "flex", gap: 6 }}>
-                <button style={rowButtonStyle} onClick={async () => {
-                  try { await toggleArchiveJob(j.id, false); refresh(); } catch (err) { setError(err.message); }
-                }}>Unarchive</button>
+                <button
+                  style={rowButtonStyle}
+                  disabled={atFreeLimit}
+                  title={atFreeLimit ? `Free plan is limited to ${FREE_TIER_JOB_LIMIT} active job` : undefined}
+                  onClick={async () => {
+                    try { await toggleArchiveJob(j.id, false); refresh(); } catch (err) { setError(err.message); }
+                  }}
+                >Unarchive</button>
                 <ConfirmButton
                   onConfirm={async () => {
                     try { await deleteJob(j.id); refresh(); } catch (err) { setError(err.message); }
