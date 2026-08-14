@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { onAuthChange, signInWithEmail, signInWithGoogle, signOut, getCurrentUser } from "./lib/auth";
 import { listJobs, createJob, duplicateJob, deleteJob, toggleArchiveJob, getBusinessProfile } from "./lib/jobsApi";
 import { formatMoney } from "./lib/currency";
-import { getSubscriptionStatus, isContractorPlan, startCheckout, openBillingPortal, FREE_TIER_JOB_LIMIT } from "./lib/subscription";
+import { getSubscriptionStatus, getCachedSubscriptionStatus, isContractorPlan, startCheckout, openBillingPortal, FREE_TIER_JOB_LIMIT } from "./lib/subscription";
 import { computeJobInvoiceTotal, jobRevenueDate } from "./lib/invoiceTotal";
 import { downloadTextFile, csvField } from "./lib/exportUtils";
 import { ConfirmButton } from "./components/shared/ConfirmButton";
@@ -752,7 +752,13 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (user) getSubscriptionStatus(user.id).then(setSubscription).catch(() => {});
+    if (!user) return;
+    // Show last-known plan status immediately (if any) instead of the
+    // "free" default while the real check is in flight, so a returning
+    // Contractor doesn't see a locked flash on every page load.
+    const cached = getCachedSubscriptionStatus(user.id);
+    if (cached) setSubscription(cached);
+    getSubscriptionStatus(user.id).then(setSubscription).catch(() => {});
   }, [user?.id]);
 
   if (user === undefined) return null; // brief auth check, avoid a flash of the sign-in screen

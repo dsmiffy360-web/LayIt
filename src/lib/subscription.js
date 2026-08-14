@@ -6,10 +6,31 @@ import { supabase } from "./supabaseClient";
 // allowed to write it, so a user's own browser can never grant itself
 // "active" no matter what the client code does.
 
+const cacheKey = (userId) => `layit-subscription-${userId}`;
+
+// Last-known plan status, read synchronously on page load so a returning
+// Contractor-plan user doesn't render as "free/locked" for the moment it
+// takes the real fetch below to resolve — null (not yet fetched) is
+// otherwise indistinguishable from a confirmed free plan.
+export function getCachedSubscriptionStatus(userId) {
+  try {
+    const raw = localStorage.getItem(cacheKey(userId));
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function getSubscriptionStatus(userId) {
   const { data, error } = await supabase.from("subscriptions").select("status, plan").eq("user_id", userId).maybeSingle();
   if (error) throw error;
-  return data || { status: "free", plan: "free" };
+  const sub = data || { status: "free", plan: "free" };
+  try {
+    localStorage.setItem(cacheKey(userId), JSON.stringify(sub));
+  } catch {
+    // ignore — worst case is one flicker next load
+  }
+  return sub;
 }
 
 export function isContractorPlan(subscription) {
