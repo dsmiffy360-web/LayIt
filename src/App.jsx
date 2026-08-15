@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { onAuthChange, signInWithEmail, signInWithGoogle, signOut, getCurrentUser } from "./lib/auth";
+import { deleteAccount } from "./lib/account";
 import { listJobs, createJob, duplicateJob, deleteJob, toggleArchiveJob, getBusinessProfile } from "./lib/jobsApi";
 import { formatMoney } from "./lib/currency";
 import { getSubscriptionStatus, getCachedSubscriptionStatus, isContractorPlan, startCheckout, openBillingPortal, FREE_TIER_JOB_LIMIT } from "./lib/subscription";
@@ -160,6 +161,73 @@ function ReminderToggle({ onContractorPlan }) {
   );
 }
 
+function DeleteAccountModal({ onContractorPlan, onClose, onDeleted }) {
+  const [confirmText, setConfirmText] = useState("");
+  const [deleting, setDeleting] = useState(false);
+  const [error, setError] = useState("");
+
+  const canDelete = confirmText.trim().toUpperCase() === "DELETE";
+
+  const handleDelete = async () => {
+    setDeleting(true);
+    setError("");
+    try {
+      const { billingWarning } = await deleteAccount();
+      onDeleted(billingWarning);
+    } catch (err) {
+      setError(err.message);
+      setDeleting(false);
+    }
+  };
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(20,18,14,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16, zIndex: 100 }}>
+      <div style={{ background: COLORS.panel, borderRadius: 12, border: `1px solid ${COLORS.border}`, padding: 24, maxWidth: 420, width: "100%" }}>
+        <h2 style={{ fontFamily: "Space Grotesk", fontWeight: 700, fontSize: 20, color: COLORS.wasteText, margin: "0 0 12px" }}>
+          Delete account
+        </h2>
+        <p style={{ fontFamily: "Inter", fontSize: 14, color: COLORS.ink, lineHeight: 1.5, margin: "0 0 8px" }}>
+          This permanently deletes your account, every job, invoice, and photo attachment, and your business profile. This can't be undone.
+        </p>
+        {onContractorPlan && (
+          <p style={{ fontFamily: "Inter", fontSize: 14, color: COLORS.ink, lineHeight: 1.5, margin: "0 0 8px" }}>
+            Your Contractor subscription will also be canceled.
+          </p>
+        )}
+        <p style={{ fontFamily: "Inter", fontSize: 13, color: COLORS.sub, margin: "16px 0 6px" }}>
+          Type DELETE to confirm.
+        </p>
+        <input
+          value={confirmText}
+          onChange={(e) => setConfirmText(e.target.value)}
+          style={inputStyle}
+          placeholder="DELETE"
+          autoFocus
+        />
+        {error && <p style={{ fontFamily: "Inter", fontSize: 13, color: COLORS.wasteText, marginTop: 10 }}>{error}</p>}
+        <div style={{ display: "flex", gap: 8, marginTop: 20 }}>
+          <button onClick={onClose} disabled={deleting} style={{ ...secondaryButtonStyle, flex: 1 }}>
+            Cancel
+          </button>
+          <button
+            onClick={handleDelete}
+            disabled={!canDelete || deleting}
+            style={{
+              ...primaryButtonStyle,
+              flex: 1,
+              background: canDelete ? COLORS.wasteText : COLORS.border,
+              opacity: deleting ? 0.6 : 1,
+              cursor: !canDelete || deleting ? "default" : "pointer",
+            }}
+          >
+            {deleting ? "Deleting…" : "Delete forever"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function JobList({ user, onOpenJob, subscription, setSubscription }) {
   const [jobs, setJobs] = useState(null);
   const [error, setError] = useState("");
@@ -172,6 +240,7 @@ function JobList({ user, onOpenJob, subscription, setSubscription }) {
   const [breakdownYear, setBreakdownYear] = useState(new Date().getFullYear());
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [showDeleteAccount, setShowDeleteAccount] = useState(false);
   // Same currency the Invoice step's business profile uses, so a job's
   // value reads the same way here as it does on its own invoice.
   const [currency, setCurrency] = useState("USD");
@@ -729,6 +798,24 @@ function JobList({ user, onOpenJob, subscription, setSubscription }) {
             <p style={{ fontFamily: "Inter", fontSize: 13, color: COLORS.sub, margin: 0 }}>No archived jobs.</p>
           )}
         </section>
+      )}
+
+      <div style={{ marginTop: 32, textAlign: "center" }}>
+        <button
+          onClick={() => setShowDeleteAccount(true)}
+          style={{ background: "none", border: "none", fontFamily: "Inter", fontSize: 12, color: COLORS.sub, cursor: "pointer", textDecoration: "underline" }}
+        >
+          Delete account
+        </button>
+      </div>
+      {showDeleteAccount && (
+        <DeleteAccountModal
+          onContractorPlan={onContractorPlan}
+          onClose={() => setShowDeleteAccount(false)}
+          onDeleted={(billingWarning) => {
+            if (billingWarning) window.alert(billingWarning);
+          }}
+        />
       )}
     </div>
   );
