@@ -13,6 +13,8 @@
 
 import Stripe from "stripe";
 import { createClient } from "@supabase/supabase-js";
+import * as Sentry from "@sentry/node";
+import { wrapHandler } from "./_sentry.js";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
@@ -44,7 +46,7 @@ async function deleteAllUserAttachments(userId) {
   if (removeError) throw removeError;
 }
 
-export default async function handler(req, res) {
+async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).end();
 
   const authHeader = req.headers.authorization || "";
@@ -80,6 +82,9 @@ export default async function handler(req, res) {
     res.json({ ok: true, billingWarning });
   } catch (err) {
     console.error("Account deletion failed:", err.message);
+    Sentry.captureException(err);
     res.status(500).json({ error: err.message });
   }
 }
+
+export default wrapHandler(handler);

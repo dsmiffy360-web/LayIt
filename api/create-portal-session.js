@@ -7,6 +7,8 @@
 
 import Stripe from "stripe";
 import { createClient } from "@supabase/supabase-js";
+import * as Sentry from "@sentry/node";
+import { wrapHandler } from "./_sentry.js";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
@@ -15,7 +17,7 @@ const supabaseAdmin = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-export default async function handler(req, res) {
+async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).end();
 
   const { userId } = req.body;
@@ -39,6 +41,9 @@ export default async function handler(req, res) {
     res.json({ url: session.url });
   } catch (err) {
     console.error("Portal session creation failed:", err.message);
+    Sentry.captureException(err);
     res.status(500).json({ error: err.message });
   }
 }
+
+export default wrapHandler(handler);

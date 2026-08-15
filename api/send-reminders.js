@@ -7,12 +7,14 @@
 
 import webpush from "web-push";
 import { createClient } from "@supabase/supabase-js";
+import * as Sentry from "@sentry/node";
+import { wrapHandler } from "./_sentry.js";
 
 webpush.setVapidDetails(process.env.VAPID_SUBJECT, process.env.VAPID_PUBLIC_KEY, process.env.VAPID_PRIVATE_KEY);
 
 const supabaseAdmin = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 
-export default async function handler(req, res) {
+async function handler(req, res) {
   // Vercel auto-attaches CRON_SECRET as a bearer token on scheduled
   // invocations when an env var of that exact name is set — this just
   // stops anyone else from hitting the URL and mass-notifying every user.
@@ -78,6 +80,9 @@ export default async function handler(req, res) {
     res.json({ sent, jobs: jobs.length, cleanedUp: deadSubscriptionIds.length });
   } catch (err) {
     console.error("send-reminders failed:", err.message);
+    Sentry.captureException(err);
     res.status(500).json({ error: err.message });
   }
 }
+
+export default wrapHandler(handler);

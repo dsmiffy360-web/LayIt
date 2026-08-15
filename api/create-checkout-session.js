@@ -4,10 +4,12 @@
 // payment form, so no card data ever touches this app's own code.
 
 import Stripe from "stripe";
+import * as Sentry from "@sentry/node";
+import { wrapHandler } from "./_sentry.js";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
-export default async function handler(req, res) {
+async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).end();
 
   const { userId, userEmail } = req.body;
@@ -35,6 +37,9 @@ export default async function handler(req, res) {
     res.json({ url: session.url });
   } catch (err) {
     console.error("Checkout session creation failed:", err.message);
+    Sentry.captureException(err);
     res.status(500).json({ error: err.message });
   }
 }
+
+export default wrapHandler(handler);

@@ -7,6 +7,8 @@
 
 import Stripe from "stripe";
 import { createClient } from "@supabase/supabase-js";
+import * as Sentry from "@sentry/node";
+import { wrapHandler } from "./_sentry.js";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
@@ -34,7 +36,7 @@ function getPeriodEnd(subscription) {
   return subscription.items?.data?.[0]?.current_period_end ?? subscription.current_period_end;
 }
 
-export default async function handler(req, res) {
+async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).end();
 
   const rawBody = await buffer(req);
@@ -61,7 +63,10 @@ export default async function handler(req, res) {
         plan: "contractor",
         current_period_end: new Date(getPeriodEnd(subscription) * 1000).toISOString(),
       });
-      if (error) console.error("Failed to write subscription after checkout:", error.message);
+      if (error) {
+        console.error("Failed to write subscription after checkout:", error.message);
+        Sentry.captureException(new Error(`Failed to write subscription after checkout: ${error.message}`));
+      }
       break;
     }
     case "customer.subscription.updated":
@@ -76,7 +81,10 @@ export default async function handler(req, res) {
           current_period_end: new Date(getPeriodEnd(subscription) * 1000).toISOString(),
         })
         .eq("stripe_subscription_id", subscription.id);
-      if (error) console.error("Failed to update subscription status:", error.message);
+      if (error) {
+        console.error("Failed to update subscription status:", error.message);
+        Sentry.captureException(new Error(`Failed to update subscription status: ${error.message}`));
+      }
       break;
     }
     default:
@@ -86,3 +94,5 @@ export default async function handler(req, res) {
 
   res.json({ received: true });
 }
+
+export default wrapHandler(handler);
