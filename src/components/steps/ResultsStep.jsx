@@ -592,6 +592,10 @@ export function ResultsStep({ job, updateJob, jobName }) {
         </section>
       )}
 
+      <p style={{ fontSize: 11, color: COLORS.sub, marginTop: 0, marginBottom: 18, lineHeight: 1.5 }}>
+        These quantities and cuts are calculated from the measurements you entered — they're a planning aid, not a guarantee. Always verify measurements and cut counts on site before ordering or cutting material.
+      </p>
+
       <section style={{ background: COLORS.panel, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 18, marginBottom: 18 }}>
         <div style={{ fontFamily: "Space Grotesk", fontWeight: 600, fontSize: 15, marginBottom: 10 }}>Batch cutting list</div>
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
