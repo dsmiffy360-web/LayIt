@@ -100,6 +100,10 @@ function SignInScreen({ onBack }) {
         By continuing, you agree to LayIt's{" "}
         <a href="/terms.html" target="_blank" rel="noopener noreferrer" style={{ color: COLORS.accentText }}>
           Terms of Service
+        </a>{" "}
+        and{" "}
+        <a href="/privacy.html" target="_blank" rel="noopener noreferrer" style={{ color: COLORS.accentText }}>
+          Privacy Policy
         </a>.
       </p>
     </div>
@@ -814,6 +818,14 @@ function JobList({ user, onOpenJob, subscription, setSubscription }) {
           style={{ fontFamily: "Inter", fontSize: 12, color: COLORS.sub }}
         >
           Terms of Service
+        </a>
+        <a
+          href="/privacy.html"
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ fontFamily: "Inter", fontSize: 12, color: COLORS.sub }}
+        >
+          Privacy Policy
         </a>
         <button
           onClick={() => setShowDeleteAccount(true)}
