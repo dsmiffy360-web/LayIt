@@ -96,6 +96,12 @@ function SignInScreen({ onBack }) {
           </>
         )}
       </section>
+      <p style={{ fontFamily: "Inter", fontSize: 11, color: COLORS.sub, textAlign: "center", marginTop: 14, lineHeight: 1.5 }}>
+        By continuing, you agree to LayIt's{" "}
+        <a href="/terms.html" target="_blank" rel="noopener noreferrer" style={{ color: COLORS.accentText }}>
+          Terms of Service
+        </a>.
+      </p>
     </div>
   );
 }
@@ -800,7 +806,15 @@ function JobList({ user, onOpenJob, subscription, setSubscription }) {
         </section>
       )}
 
-      <div style={{ marginTop: 32, textAlign: "center" }}>
+      <div style={{ marginTop: 32, textAlign: "center", display: "flex", justifyContent: "center", gap: 16 }}>
+        <a
+          href="/terms.html"
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ fontFamily: "Inter", fontSize: 12, color: COLORS.sub }}
+        >
+          Terms of Service
+        </a>
         <button
           onClick={() => setShowDeleteAccount(true)}
           style={{ background: "none", border: "none", fontFamily: "Inter", fontSize: 12, color: COLORS.sub, cursor: "pointer", textDecoration: "underline" }}
