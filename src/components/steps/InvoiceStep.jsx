@@ -8,6 +8,7 @@ import { Field } from "../shared/Field";
 import { TextField } from "../shared/TextField";
 import { ConfirmButton } from "../shared/ConfirmButton";
 import { AttachmentsSection } from "../shared/Attachments";
+import { SignaturePad } from "../shared/SignaturePad";
 import { generateInvoicePdf } from "../../lib/pdfInvoice";
 import { CURRENCIES, formatMoney, guessDefaultCurrency } from "../../lib/currency";
 
@@ -17,6 +18,7 @@ export function InvoiceStep({ job, updateJob, jobId, jobName, clientName, setCli
   const [business, setBusiness] = useState({ name: "", contact: "", bank_details: "", logo: null, currency: guessDefaultCurrency() });
   const [copyStatus, setCopyStatus] = useState("");
   const [logoError, setLogoError] = useState("");
+  const [signOffName, setSignOffName] = useState("");
 
   useEffect(() => {
     getBusinessProfile().then(setBusiness).catch(() => {});
@@ -97,7 +99,7 @@ export function InvoiceStep({ job, updateJob, jobId, jobName, clientName, setCli
 
   const {
     clientAddress, invoiceNumber, invoiceDate, laborCost, taxRate, invoiceNotes,
-    extraLineItems, paymentStatus, depositAmount,
+    extraLineItems, paymentStatus, depositAmount, signature, signedByName, signedAt,
   } = job;
 
   const { total, subtotal, tax, materials } = computeJobInvoiceTotal(job);
@@ -144,6 +146,10 @@ export function InvoiceStep({ job, updateJob, jobId, jobName, clientName, setCli
     }
     if (invoiceNotes) { lines.push(""); lines.push(invoiceNotes); }
     if (business.bank_details) { lines.push(""); lines.push("Payment details:"); lines.push(business.bank_details); }
+    if (signature) {
+      lines.push("");
+      lines.push(`Accepted by client: ${signedByName} on ${new Date(signedAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}`);
+    }
     return lines.join("\n");
   };
 
@@ -152,7 +158,7 @@ export function InvoiceStep({ job, updateJob, jobId, jobName, clientName, setCli
       business, invoiceNumber, invoiceDate, clientName, clientAddress, jobName,
       materials, materialsAmount, laborAmount, extraLineItems,
       subtotal, taxPct, tax, total, paymentStatus, depositPaid, balanceDue,
-      invoiceNotes,
+      invoiceNotes, signature, signedByName, signedAt,
       filename: `${(jobName || "invoice").replace(/[^a-z0-9]+/gi, "-").toLowerCase()}-invoice.pdf`,
     });
   };
@@ -363,6 +369,41 @@ export function InvoiceStep({ job, updateJob, jobId, jobName, clientName, setCli
         </div>
       </section>
 
+      <section style={{ background: COLORS.panel, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 18, marginBottom: 14 }}>
+        <div style={{ fontFamily: "Space Grotesk", fontWeight: 600, fontSize: 15, marginBottom: 4 }}>Client sign-off</div>
+        <p style={{ fontSize: 12, color: COLORS.sub, marginTop: 0, marginBottom: 12 }}>
+          Capture the client's signature confirming the work above has been completed to their satisfaction — a paper trail alongside the invoice.
+        </p>
+        {signature ? (
+          <div>
+            <img src={signature} alt="Client signature" style={{ maxWidth: 240, maxHeight: 100, borderRadius: 6, border: `1px solid ${COLORS.border}`, background: "#FFFFFF", display: "block" }} />
+            <p style={{ fontSize: 12, color: COLORS.sub, marginTop: 8, marginBottom: 0 }}>
+              Signed by <strong>{signedByName}</strong> on {new Date(signedAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
+            </p>
+            <ConfirmButton
+              onConfirm={() => updateJob({ signature: null, signedByName: "", signedAt: "" })}
+              armedLabel="Clear signature?"
+              ariaLabel="Clear signature"
+              style={{ marginTop: 8, minHeight: 36, border: `1px solid ${COLORS.border}`, background: "#FBFAF7", color: COLORS.wasteText, cursor: "pointer", fontFamily: "JetBrains Mono", fontSize: 11, fontWeight: 600, padding: "0 12px", borderRadius: 7 }}
+            >
+              Clear & re-sign
+            </ConfirmButton>
+          </div>
+        ) : (
+          <>
+            <TextField label="Signed by (client name)" value={signOffName} onChange={setSignOffName} placeholder={clientName || "Full name"} />
+            <div style={{ marginTop: 10 }}>
+              <SignaturePad
+                onSave={(dataUri) => {
+                  updateJob({ signature: dataUri, signedByName: signOffName.trim() || clientName || "Client", signedAt: new Date().toISOString() });
+                  setSignOffName("");
+                }}
+              />
+            </div>
+          </>
+        )}
+      </section>
+
       <section style={{ background: COLORS.panel, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 20, marginBottom: 18 }}>
         <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 16 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
@@ -414,6 +455,15 @@ export function InvoiceStep({ job, updateJob, jobId, jobName, clientName, setCli
           <div style={{ marginTop: 16, borderTop: `1px dashed ${COLORS.border}`, paddingTop: 12 }}>
             <div style={{ fontSize: 11, color: COLORS.sub, textTransform: "uppercase", fontWeight: 600 }}>Payment details</div>
             <p style={{ fontSize: 12, color: COLORS.sub, marginTop: 4, marginBottom: 0, whiteSpace: "pre-line" }}>{business.bank_details}</p>
+          </div>
+        )}
+        {signature && (
+          <div style={{ marginTop: 16, borderTop: `1px dashed ${COLORS.border}`, paddingTop: 12 }}>
+            <div style={{ fontSize: 11, color: COLORS.sub, textTransform: "uppercase", fontWeight: 600 }}>Accepted by client</div>
+            <img src={signature} alt="Client signature" style={{ maxWidth: 200, maxHeight: 80, marginTop: 6, display: "block" }} />
+            <p style={{ fontSize: 11, color: COLORS.sub, marginTop: 4, marginBottom: 0 }}>
+              {signedByName} — {new Date(signedAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
+            </p>
           </div>
         )}
       </section>

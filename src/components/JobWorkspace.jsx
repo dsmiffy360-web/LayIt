@@ -77,6 +77,9 @@ export function defaultJobData() {
     paymentStatus: "unpaid",
     depositAmount: "",
     attachments: [],
+    signature: null,
+    signedByName: "",
+    signedAt: "",
   };
 }
 

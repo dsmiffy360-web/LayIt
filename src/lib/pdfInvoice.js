@@ -10,7 +10,7 @@ export function generateInvoicePdf({
   business, invoiceNumber, invoiceDate, clientName, clientAddress, jobName,
   materials, materialsAmount, laborAmount, extraLineItems,
   subtotal, taxPct, tax, total, paymentStatus, depositPaid, balanceDue,
-  invoiceNotes, filename,
+  invoiceNotes, signature, signedByName, signedAt, filename,
 }) {
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   const marginX = 20;
@@ -150,6 +150,29 @@ export function generateInvoicePdf({
     doc.setTextColor(90);
     const bankLines = doc.splitTextToSize(business.bank_details, rightX - marginX);
     doc.text(bankLines, marginX, y);
+    y += bankLines.length * 4.5 + 4;
+  }
+
+  if (signature) {
+    try {
+      y += 2;
+      rule(225);
+      const img = doc.getImageProperties(signature);
+      const w = 50;
+      const h = (img.height / img.width) * w;
+      doc.setFontSize(9);
+      doc.setTextColor(140);
+      doc.text("ACCEPTED BY CLIENT", marginX, y);
+      y += 4;
+      doc.addImage(signature, img.fileType, marginX, y, w, h);
+      y += h + 5;
+      doc.setFontSize(9);
+      doc.setTextColor(90);
+      doc.text(`${signedByName} — ${signedAt ? new Date(signedAt).toLocaleDateString() : ""}`, marginX, y);
+    } catch {
+      // skip the signature if the stored data URI can't be decoded — the
+      // rest of the invoice still renders fine without it
+    }
   }
 
   doc.save(filename);

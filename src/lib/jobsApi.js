@@ -69,6 +69,9 @@ export async function duplicateJob(sourceJobId) {
     status: "quote",
     scheduledDate: "", // a copy isn't scheduled for the same date as the original
     attachments: [], // a copy doesn't inherit the original's room photos/receipts
+    signature: null, // a copy needs its own client sign-off, not the original's
+    signedByName: "",
+    signedAt: "",
   });
 }
 
