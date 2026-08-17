@@ -110,6 +110,76 @@ function SignInScreen({ onBack }) {
   );
 }
 
+// Nudges toward installing the PWA instead of relying on users to notice
+// the browser's own install icon. Chrome/Edge/Android fire
+// beforeinstallprompt when the app qualifies — we capture that event and
+// trigger it from our own button. iOS Safari never fires it (no
+// programmatic install API there), so we show a manual instruction
+// instead. Dismissal is remembered in localStorage so this doesn't nag
+// on every visit once someone's said no.
+function InstallPrompt() {
+  const [deferredPrompt, setDeferredPrompt] = useState(null);
+  const [installed, setInstalled] = useState(false);
+  const [isIOS, setIsIOS] = useState(false);
+  const [dismissed, setDismissed] = useState(() => localStorage.getItem("layit-install-dismissed") === "1");
+
+  useEffect(() => {
+    const standalone = window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
+    if (standalone) {
+      setInstalled(true);
+      return;
+    }
+    setIsIOS(/iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream);
+
+    const handleBeforeInstall = (e) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
+    const handleInstalled = () => {
+      setInstalled(true);
+      setDeferredPrompt(null);
+    };
+    window.addEventListener("beforeinstallprompt", handleBeforeInstall);
+    window.addEventListener("appinstalled", handleInstalled);
+    return () => {
+      window.removeEventListener("beforeinstallprompt", handleBeforeInstall);
+      window.removeEventListener("appinstalled", handleInstalled);
+    };
+  }, []);
+
+  const handleDismiss = () => {
+    setDismissed(true);
+    localStorage.setItem("layit-install-dismissed", "1");
+  };
+
+  const handleInstallClick = async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    await deferredPrompt.userChoice;
+    setDeferredPrompt(null);
+  };
+
+  if (installed || dismissed || (!deferredPrompt && !isIOS)) return null;
+
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 10, background: "#F0EEE7", borderRadius: 8, padding: "10px 12px", marginBottom: 16 }}>
+      <span style={{ fontFamily: "Inter", fontSize: 13, color: COLORS.sub, flex: 1 }}>
+        {deferredPrompt
+          ? "Install LayIt on this device for quick, full-screen, offline-ready access."
+          : "On iPhone: tap Share, then \"Add to Home Screen\" to install LayIt."}
+      </span>
+      {deferredPrompt && (
+        <button onClick={handleInstallClick} style={{ minHeight: 32, borderRadius: 7, border: "none", background: `linear-gradient(135deg, ${COLORS.wood1}, ${COLORS.wood2})`, color: "#FFFFFF", fontFamily: "JetBrains Mono", fontSize: 11, fontWeight: 600, cursor: "pointer", padding: "0 12px", whiteSpace: "nowrap" }}>
+          Install app
+        </button>
+      )}
+      <button onClick={handleDismiss} aria-label="Dismiss install prompt" style={{ border: "none", background: "none", color: COLORS.sub, cursor: "pointer", fontFamily: "JetBrains Mono", fontSize: 14, padding: "0 2px" }}>
+        ×
+      </button>
+    </div>
+  );
+}
+
 // Job reminders toggle — Contractor-only (scheduling itself already is),
 // renders nothing on unsupported browsers rather than a dead button.
 // Status is per-device (this is a per-browser push subscription, not an
@@ -672,6 +742,8 @@ function JobList({ user, onOpenJob, subscription, setSubscription }) {
           </button>
         )}
       </div>
+
+      <InstallPrompt />
 
       <ReminderToggle onContractorPlan={onContractorPlan} />
 
