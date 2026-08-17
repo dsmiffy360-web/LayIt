@@ -369,41 +369,6 @@ export function InvoiceStep({ job, updateJob, jobId, jobName, clientName, setCli
         </div>
       </section>
 
-      <section style={{ background: COLORS.panel, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 18, marginBottom: 14 }}>
-        <div style={{ fontFamily: "Space Grotesk", fontWeight: 600, fontSize: 15, marginBottom: 4 }}>Client sign-off</div>
-        <p style={{ fontSize: 12, color: COLORS.sub, marginTop: 0, marginBottom: 12 }}>
-          Capture the client's signature confirming the work above has been completed to their satisfaction — a paper trail alongside the invoice.
-        </p>
-        {signature ? (
-          <div>
-            <img src={signature} alt="Client signature" style={{ maxWidth: 240, maxHeight: 100, borderRadius: 6, border: `1px solid ${COLORS.border}`, background: "#FFFFFF", display: "block" }} />
-            <p style={{ fontSize: 12, color: COLORS.sub, marginTop: 8, marginBottom: 0 }}>
-              Signed by <strong>{signedByName}</strong> on {new Date(signedAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
-            </p>
-            <ConfirmButton
-              onConfirm={() => updateJob({ signature: null, signedByName: "", signedAt: "" })}
-              armedLabel="Clear signature?"
-              ariaLabel="Clear signature"
-              style={{ marginTop: 8, minHeight: 36, border: `1px solid ${COLORS.border}`, background: "#FBFAF7", color: COLORS.wasteText, cursor: "pointer", fontFamily: "JetBrains Mono", fontSize: 11, fontWeight: 600, padding: "0 12px", borderRadius: 7 }}
-            >
-              Clear & re-sign
-            </ConfirmButton>
-          </div>
-        ) : (
-          <>
-            <TextField label="Signed by (client name)" value={signOffName} onChange={setSignOffName} placeholder={clientName || "Full name"} />
-            <div style={{ marginTop: 10 }}>
-              <SignaturePad
-                onSave={(dataUri) => {
-                  updateJob({ signature: dataUri, signedByName: signOffName.trim() || clientName || "Client", signedAt: new Date().toISOString() });
-                  setSignOffName("");
-                }}
-              />
-            </div>
-          </>
-        )}
-      </section>
-
       <section style={{ background: COLORS.panel, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 20, marginBottom: 18 }}>
         <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 16 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
@@ -476,6 +441,41 @@ export function InvoiceStep({ job, updateJob, jobId, jobName, clientName, setCli
           ⬇ Download PDF
         </button>
       </div>
+
+      <section style={{ background: COLORS.panel, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 18, marginBottom: 18 }}>
+        <div style={{ fontFamily: "Space Grotesk", fontWeight: 600, fontSize: 15, marginBottom: 4 }}>Client sign-off</div>
+        <p style={{ fontSize: 12, color: COLORS.sub, marginTop: 0, marginBottom: 12 }}>
+          Capture the client's signature confirming the work above has been completed to their satisfaction — a paper trail alongside the invoice.
+        </p>
+        {signature ? (
+          <div>
+            <img src={signature} alt="Client signature" style={{ maxWidth: 240, maxHeight: 100, borderRadius: 6, border: `1px solid ${COLORS.border}`, background: "#FFFFFF", display: "block" }} />
+            <p style={{ fontSize: 12, color: COLORS.sub, marginTop: 8, marginBottom: 0 }}>
+              Signed by <strong>{signedByName}</strong> on {new Date(signedAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
+            </p>
+            <ConfirmButton
+              onConfirm={() => updateJob({ signature: null, signedByName: "", signedAt: "" })}
+              armedLabel="Clear signature?"
+              ariaLabel="Clear signature"
+              style={{ marginTop: 8, minHeight: 36, border: `1px solid ${COLORS.border}`, background: "#FBFAF7", color: COLORS.wasteText, cursor: "pointer", fontFamily: "JetBrains Mono", fontSize: 11, fontWeight: 600, padding: "0 12px", borderRadius: 7 }}
+            >
+              Clear & re-sign
+            </ConfirmButton>
+          </div>
+        ) : (
+          <>
+            <TextField label="Signed by (client name)" value={signOffName} onChange={setSignOffName} placeholder={clientName || "Full name"} />
+            <div style={{ marginTop: 10 }}>
+              <SignaturePad
+                onSave={(dataUri) => {
+                  updateJob({ signature: dataUri, signedByName: signOffName.trim() || clientName || "Client", signedAt: new Date().toISOString() });
+                  setSignOffName("");
+                }}
+              />
+            </div>
+          </>
+        )}
+      </section>
     </div>
   );
 }
