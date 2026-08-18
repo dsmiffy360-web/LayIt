@@ -40,6 +40,7 @@ function SignInScreen({ onBack }) {
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState(false);
   const [error, setError] = useState("");
+  const [agreed, setAgreed] = useState(false);
 
   const handleEmailSignIn = async (e) => {
     e.preventDefault();
@@ -71,6 +72,24 @@ function SignInScreen({ onBack }) {
           <p style={{ fontFamily: "Inter", fontSize: 14, color: COLORS.sub, lineHeight: 1.5 }}>Check your email for a sign-in link.</p>
         ) : (
           <>
+            <label style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 16, cursor: "pointer" }}>
+              <input
+                type="checkbox"
+                checked={agreed}
+                onChange={(e) => setAgreed(e.target.checked)}
+                style={{ marginTop: 3, width: 16, height: 16, flexShrink: 0, cursor: "pointer" }}
+              />
+              <span style={{ fontFamily: "Inter", fontSize: 12, color: COLORS.sub, lineHeight: 1.5 }}>
+                I'm 18 or older and agree to LayIt's{" "}
+                <a href="/terms.html" target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} style={{ color: COLORS.accentText }}>
+                  Terms of Service
+                </a>{" "}
+                and{" "}
+                <a href="/privacy.html" target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} style={{ color: COLORS.accentText }}>
+                  Privacy Policy
+                </a>.
+              </span>
+            </label>
             <form onSubmit={handleEmailSignIn}>
               <input
                 type="email"
@@ -80,7 +99,7 @@ function SignInScreen({ onBack }) {
                 onChange={(e) => setEmail(e.target.value)}
                 style={inputStyle}
               />
-              <button type="submit" style={{ ...primaryButtonStyle, width: "100%", marginTop: 10 }}>
+              <button type="submit" disabled={!agreed} style={{ ...primaryButtonStyle, width: "100%", marginTop: 10, opacity: agreed ? 1 : 0.5, cursor: agreed ? "pointer" : "default" }}>
                 Email me a sign-in link
               </button>
             </form>
@@ -90,22 +109,12 @@ function SignInScreen({ onBack }) {
               <span style={{ fontFamily: "Inter", fontSize: 11, color: COLORS.sub }}>or</span>
               <div style={{ flex: 1, height: 1, background: COLORS.border, opacity: 0.4 }} />
             </div>
-            <button onClick={signInWithGoogle} style={{ ...secondaryButtonStyle, width: "100%" }}>
+            <button onClick={signInWithGoogle} disabled={!agreed} style={{ ...secondaryButtonStyle, width: "100%", opacity: agreed ? 1 : 0.5, cursor: agreed ? "pointer" : "default" }}>
               Continue with Google
             </button>
           </>
         )}
       </section>
-      <p style={{ fontFamily: "Inter", fontSize: 11, color: COLORS.sub, textAlign: "center", marginTop: 14, lineHeight: 1.5 }}>
-        By continuing, you agree to LayIt's{" "}
-        <a href="/terms.html" target="_blank" rel="noopener noreferrer" style={{ color: COLORS.accentText }}>
-          Terms of Service
-        </a>{" "}
-        and{" "}
-        <a href="/privacy.html" target="_blank" rel="noopener noreferrer" style={{ color: COLORS.accentText }}>
-          Privacy Policy
-        </a>.
-      </p>
     </div>
   );
 }
