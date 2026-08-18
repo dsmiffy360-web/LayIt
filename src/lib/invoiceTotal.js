@@ -3,6 +3,7 @@ import {
   computeDiagonalPlankExact, computeDiagonalHerringboneExact, computePinwheelExact,
   computeDoubleHerringboneExact, computeHexagonExact, computeVersaillesExact, ROW_BASED_METHODS,
 } from "./layoutEngine";
+import { getActiveDimensions } from "./materialDimensions";
 
 // Total physical pieces (planks/tiles) needed across every section of a job,
 // for whichever of the 14 lay patterns is selected — mirrors the exact same
@@ -12,8 +13,7 @@ import {
 // in computeMaterialsAmount below.
 function computeTotalPieces(job) {
   const { layoutMethod, materialType, unit, hbCentered, sections } = job;
-  const activeLength = materialType === "tile" ? job.tileLength : job.plankLength;
-  const activeWidth = materialType === "tile" ? job.tileWidth : job.plankWidth;
+  const { length: activeLength, width: activeWidth } = getActiveDimensions(job);
   const Pl = parseFloat(activeLength), Pw = parseFloat(activeWidth);
   if (isNaN(Pw) || Pw <= 0) return null;
   if (layoutMethod !== "hexagon" && (isNaN(Pl) || Pl <= 0)) return null;

@@ -3,6 +3,7 @@ import {
   computeDiagonalPlankExact, computeDiagonalHerringboneExact, computePinwheelExact,
   computeDoubleHerringboneExact, computeHexagonExact, computeVersaillesExact, ROW_BASED_METHODS,
 } from "./layoutEngine";
+import { getActiveDimensions } from "./materialDimensions";
 
 // Computes just enough of a result to feed one of the already-ported
 // diagram components, for the Pattern step's live preview — reuses the
@@ -22,8 +23,7 @@ export function computePatternPreview(job) {
   const L = parseFloat(s.length), W = parseFloat(s.width);
   if (isNaN(L) || isNaN(W) || L <= 0 || W <= 0) return null;
 
-  const activeLength = materialType === "tile" ? job.tileLength : job.plankLength;
-  const activeWidth = materialType === "tile" ? job.tileWidth : job.plankWidth;
+  const { length: activeLength, width: activeWidth } = getActiveDimensions(job);
   const Pl = parseFloat(activeLength), Pw = parseFloat(activeWidth);
   if (isNaN(Pl) || isNaN(Pw) || Pl <= 0 || Pw <= 0) return null;
 

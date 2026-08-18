@@ -53,6 +53,8 @@ export function defaultJobData() {
     plankWidth: "19",
     tileLength: "60",
     tileWidth: "60",
+    ceilingTileLength: "60",
+    ceilingTileWidth: "60",
     rollWidth: "366",
     packSize: "8",
     minStagger: "20",

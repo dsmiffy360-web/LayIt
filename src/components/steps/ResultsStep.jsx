@@ -1,4 +1,5 @@
 import { COLORS } from "../../lib/colors";
+import { getActiveDimensions } from "../../lib/materialDimensions";
 import { computeSectionLayout, computeHerringboneExact, computeChevronExact, computeBasketWeaveExact, computeDiagonalPlankExact, computeDiagonalHerringboneExact, computePinwheelExact, computeDoubleHerringboneExact, computeHexagonExact, computeVersaillesExact, computeRollGoods, computeCutTally, ROW_BASED_METHODS, UNIT_TO_CM, UNIT_DECIMALS } from "../../lib/layoutEngine";
 import { BlueprintDiagram } from "../diagrams/BlueprintDiagram";
 import { HerringboneExactDiagram } from "../diagrams/HerringboneExactDiagram";
@@ -93,8 +94,7 @@ function AlcoveFillBlock({ alcoveSections, unit, pieceLabel, checkedPieces, onBu
 
 export function ResultsStep({ job, updateJob, jobName }) {
   const { sections, unit, layoutMethod, materialType, checkedPieces, hbCentered } = job;
-  const activeLength = materialType === "tile" ? job.tileLength : job.plankLength;
-  const activeWidth = materialType === "tile" ? job.tileWidth : job.plankWidth;
+  const { length: activeLength, width: activeWidth } = getActiveDimensions(job);
   const pieceLabel = job.materialName.trim() || (materialType === "tile" ? "Tile" : "Plank");
 
   const nums = {

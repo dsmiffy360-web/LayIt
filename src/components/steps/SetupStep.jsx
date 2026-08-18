@@ -85,6 +85,8 @@ export function SetupStep({ job, updateJob }) {
       plankWidth: convert(job.plankWidth),
       tileLength: convert(job.tileLength),
       tileWidth: convert(job.tileWidth),
+      ceilingTileLength: convert(job.ceilingTileLength),
+      ceilingTileWidth: convert(job.ceilingTileWidth),
       minStagger: convert(job.minStagger),
       groutGap: convert(job.groutGap),
       rollWidth: convert(job.rollWidth),

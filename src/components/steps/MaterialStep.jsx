@@ -6,16 +6,16 @@ import { TextField } from "../shared/TextField";
 import { ConfirmButton } from "../shared/ConfirmButton";
 import { LivePreview } from "../LivePreview";
 import { listSavedMaterials, createSavedMaterial, deleteSavedMaterial } from "../../lib/savedMaterials";
+import { getActiveDimensions } from "../../lib/materialDimensions";
 
 let mixedWidthIdCounter = 1000;
 
 export function MaterialStep({ job, updateJob }) {
   const { unit, projectType, materialType, materialName, layoutMethod, mixedWidthEnabled, mixedWidths, buffer, pricePerPack } = job;
 
-  const activeLength = materialType === "tile" ? job.tileLength : job.plankLength;
-  const activeWidth = materialType === "tile" ? job.tileWidth : job.plankWidth;
-  const setActiveLength = (v) => updateJob(materialType === "tile" ? { tileLength: v } : { plankLength: v });
-  const setActiveWidth = (v) => updateJob(materialType === "tile" ? { tileWidth: v } : { plankWidth: v });
+  const { length: activeLength, width: activeWidth } = getActiveDimensions(job);
+  const setActiveLength = (v) => updateJob(projectType === "ceiling" ? { ceilingTileLength: v } : materialType === "tile" ? { tileLength: v } : { plankLength: v });
+  const setActiveWidth = (v) => updateJob(projectType === "ceiling" ? { ceilingTileWidth: v } : materialType === "tile" ? { tileWidth: v } : { plankWidth: v });
 
   const pieceLabel = materialName.trim() || (materialType === "tile" ? "Tile" : "Plank");
   const packLabel = materialType === "tile" ? "box" : "pack";
@@ -43,7 +43,12 @@ export function MaterialStep({ job, updateJob }) {
   }, []);
 
   const applySavedMaterial = (m) => {
-    if (m.material_type === "roll") {
+    if (projectType === "ceiling") {
+      // Ceiling is always tile-shaped regardless of the saved material's
+      // own type — apply its dimensions to the ceiling-specific fields so
+      // it doesn't leak into (or get overwritten by) floor tile specs.
+      updateJob({ materialName: m.name, ceilingTileLength: m.length, ceilingTileWidth: m.width, packSize: m.pack_size, pricePerPack: m.price_per_pack });
+    } else if (m.material_type === "roll") {
       updateJob({ materialType: "roll", materialName: m.name, rollWidth: m.roll_width, pricePerPack: m.price_per_pack });
     } else if (m.material_type === "tile") {
       updateJob({ materialType: "tile", materialName: m.name, tileLength: m.length, tileWidth: m.width, packSize: m.pack_size, pricePerPack: m.price_per_pack });
