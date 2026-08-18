@@ -6,7 +6,9 @@ const FEATURES = [
   { title: "Built for the job site, not the office", desc: "Installable on your phone and works offline. The cut list is a tap-to-check-off checklist you actually use mid-cut, not a PDF you printed at a desk." },
   { title: "14 lay patterns", desc: "Straight, herringbone, chevron, basket weave, hexagon, Versailles, and more — pick one and see it rendered before you commit material." },
   { title: "Client-ready invoices", desc: "Your logo, business profile, and bank details saved once, reused on every job. Print, copy as text, or save as PDF. Contractor plan." },
-  { title: "Business summary & tax records", desc: "Jobs completed and value of work at a glance, plus a monthly income breakdown and paid-jobs export for tax time. Contractor plan." },
+  { title: "Client sign-off, not just an invoice", desc: "Capture a signature right on the invoice confirming the client accepted the finished work — a paper trail beyond the payment record. Contractor plan." },
+  { title: "A nudge before the job, not after", desc: "Turn on same-day push reminders for scheduled jobs, so nothing slips because it wasn't top of mind that morning. Contractor plan." },
+  { title: "Business summary & tax records", desc: "Jobs completed and value of work at a glance, a monthly income breakdown, paid-jobs export, and room/receipt photos kept with each job for tax time. Contractor plan." },
 ];
 
 const inputLikeButton = { minHeight: 52, borderRadius: 10, border: "none", background: `linear-gradient(135deg, ${COLORS.wood1}, ${COLORS.wood2})`, color: "#FFFFFF", fontFamily: "JetBrains Mono", fontSize: 15, fontWeight: 600, cursor: "pointer", padding: "0 28px" };
@@ -62,7 +64,8 @@ export function LandingPage({ onGetStarted }) {
             <div style={{ fontFamily: "Inter", fontSize: 12, color: COLORS.reuse, fontWeight: 600, marginBottom: 14 }}>7-day free trial</div>
             <ul style={{ fontFamily: "Inter", fontSize: 13, color: COLORS.sub, margin: 0, paddingLeft: 18, lineHeight: 1.8 }}>
               <li>Unlimited active jobs</li>
-              <li>Client-ready invoicing</li>
+              <li>Client-ready invoicing & sign-off</li>
+              <li>Photo attachments & job reminders</li>
               <li>Everything in Free</li>
               <li>Cancel anytime</li>
             </ul>
