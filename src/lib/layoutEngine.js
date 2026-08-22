@@ -1046,11 +1046,21 @@ function computeSectionLayout({ L, W, Pl, Pw, minStagger, method, seed, unit, ga
       if (method === "straight") {
         // rows begin aligned — no starter piece
       } else if (method === "fixed-third") {
+        // The starter length here is fixed by the brick-bond rule (1/3 or
+        // 2/3 of a plank, cycling) — not a free choice like the stagger
+        // methods — but that only constrains what length it must be, not
+        // where it comes from. If the previous row's trimmed-off remainder
+        // is long enough, cut it down to the required length instead of
+        // opening a new plank.
         const frac = thirdCycle[r % 3];
         if (frac < 1) {
           const starter = Math.min(Pl * frac, remaining);
-          place(starter, { kind: "cut-start", offWaste: Pl - starter });
-          totalPlanks++;
+          if (carry >= starter - 1e-9) {
+            place(starter, { kind: "offcut-reuse" });
+          } else {
+            place(starter, { kind: "cut-start", offWaste: Pl - starter });
+            totalPlanks++;
+          }
         }
       } else if (method === "cascade") {
         if (carry > 1e-6) {
@@ -1085,7 +1095,7 @@ function computeSectionLayout({ L, W, Pl, Pw, minStagger, method, seed, unit, ga
     if (finalAvail > 1e-6) {
       place(finalAvail, { kind: "cut-end", offWaste: Pl - finalAvail });
       totalPlanks++;
-      carry = method === "stagger-reuse" || method === "cascade" ? Pl - finalAvail : 0;
+      carry = method === "stagger-reuse" || method === "cascade" || method === "fixed-third" ? Pl - finalAvail : 0;
     } else {
       carry = 0;
     }
