@@ -51,7 +51,7 @@ export function HerringboneExactDiagram({ result, L, W, unit, pieceLabel = "Plan
             y={py(p.y)}
             width={Math.max(p.w * scale - 0.5, 0)}
             height={Math.max(p.h * scale - 0.5, 0)}
-            fill={p.full ? (i % 2 === 0 ? COLORS.wood1 : COLORS.wood2) : COLORS.waste}
+            fill={p.full ? (i % 2 === 0 ? COLORS.wood1 : COLORS.wood2) : p.reuse ? COLORS.reuse : COLORS.waste}
             stroke={COLORS.blueprint}
             strokeWidth="0.5"
             opacity={p.inAlcove ? 0.85 : 1}
@@ -67,6 +67,7 @@ export function HerringboneExactDiagram({ result, L, W, unit, pieceLabel = "Plan
         <g transform={`translate(${px(0)}, ${py(0) + drawH + 14})`}>
           {[
             [COLORS.wood1, "Full plank"],
+            [COLORS.reuse, "Reused offcut"],
             [COLORS.waste, "Cut at perimeter"],
           ].map(([c, label], i) => (
             <g key={label} transform={`translate(${i * 150}, 0)`}>

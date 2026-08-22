@@ -10,7 +10,7 @@ export function HerringboneExactCutList({ sectionResults, unit, pieceLabel = "Pl
     (sec.herringbonePieces || []).forEach((p) => {
       if (p.full) {
         fullCount++;
-      } else {
+      } else if (!p.reuse) {
         const key = `${+p.w.toFixed(decimals)}x${+p.h.toFixed(decimals)}`;
         cutTally.set(key, (cutTally.get(key) || 0) + 1);
       }

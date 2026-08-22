@@ -45,7 +45,10 @@ function computeTotalPieces(job) {
     else if (layoutMethod === "versailles" && Pw < Pl - 1e-9) pieces = computeVersaillesExact(L, W, Pl, Pw);
 
     if (pieces) {
-      total += pieces.length;
+      // Pieces satisfied from a reused offcut (currently only herringbone
+      // tracks this) don't consume an additional plank; other patterns'
+      // pieces have no `reuse` property, so they're unaffected here.
+      total += pieces.filter((p) => !p.reuse).length;
       any = true;
     }
   }

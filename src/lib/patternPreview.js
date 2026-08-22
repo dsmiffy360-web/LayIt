@@ -45,7 +45,7 @@ export function computePatternPreview(job) {
     if (Pl < Pw - 1e-9) return null;
     const pieces = computeHerringboneExact(L, W, Pl, Pw, hbCentered, alcoves);
     if (!pieces) return null;
-    return { kind: "herringbone", result: { herringbonePieces: pieces, totalPlanks: pieces.length, hbCentered, alcoves, L, W } };
+    return { kind: "herringbone", result: { herringbonePieces: pieces, totalPlanks: pieces.filter((p) => !p.reuse).length, hbCentered, alcoves, L, W } };
   }
   if (layoutMethod === "chevron") {
     if (Pl <= Pw + 1e-9) return null;

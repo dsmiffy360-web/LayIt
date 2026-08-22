@@ -192,7 +192,10 @@ export function ResultsStep({ job, updateJob, jobName }) {
     const hbResults = sectionNums.map((s) => {
       const pieces = computeHerringboneExact(s.L, s.W, nums.Pl, nums.Pw, hbCentered, s.alcoves);
       if (!pieces) return { ...s, herringbonePieces: null };
-      const totalPlanks = pieces.length;
+      // Pieces satisfied from a reused offcut don't consume an additional
+      // plank — that material was already counted against whichever piece
+      // originally produced the offcut.
+      const totalPlanks = pieces.filter((p) => !p.reuse).length;
       const usedPlanksArea = totalPlanks * nums.Pl * nums.Pw;
       const roomArea = s.L * s.W;
       return { ...s, herringbonePieces: pieces, totalPlanks, hbCentered, wasteFactor: (usedPlanksArea - roomArea) / roomArea };

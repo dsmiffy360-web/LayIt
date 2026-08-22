@@ -8,6 +8,54 @@ const UNIT_TO_CM = { mm: 0.1, cm: 1, in: 2.54 };
 const UNIT_DECIMALS = { mm: 0, cm: 1, in: 2 };
 const ROW_BASED_METHODS = ["stagger-reuse", "cascade", "fixed-third", "random", "straight"];
 
+// Greedy same-width offcut matching for exact-tiling patterns whose
+// pieces are simple rectangles (herringbone) — a piece trimmed on
+// exactly one axis leaves a same-width offcut that's genuinely reusable
+// elsewhere in the room; a piece trimmed on both axes at once (a corner)
+// would need a rip cut to reuse, which isn't a standard on-site move, so
+// those are left untouched — neither a source nor a consumer of offcuts.
+// Processes pieces in their generation order, keeping a pool of
+// available offcut lengths and always taking the smallest one that still
+// fits (best-fit), so a large offcut isn't burned on a small need before
+// a tighter fit is found for it.
+function matchLengthOffcuts(pieces, boardWidth) {
+  const EPS = 1e-6;
+  const pool = [];
+  const takeBestFit = (need) => {
+    let bestIdx = -1, bestLen = Infinity;
+    for (let i = 0; i < pool.length; i++) {
+      const len = pool[i];
+      if (len >= need - EPS && len < bestLen) { bestLen = len; bestIdx = i; }
+    }
+    if (bestIdx === -1) return null;
+    pool.splice(bestIdx, 1);
+    return bestLen;
+  };
+
+  for (const piece of pieces) {
+    if (piece.full || piece.inAlcove) { piece.reuse = false; continue; }
+    const wChanged = Math.abs(piece.w - piece.origW) > EPS;
+    const hChanged = Math.abs(piece.h - piece.origH) > EPS;
+    if (wChanged === hChanged) { piece.reuse = false; continue; } // both axes (a corner) or neither
+    const widthVal = wChanged ? piece.h : piece.w;
+    if (Math.abs(widthVal - boardWidth) > EPS) { piece.reuse = false; continue; }
+    const neededLength = wChanged ? piece.w : piece.h;
+    const origLength = wChanged ? piece.origW : piece.origH;
+
+    const fit = takeBestFit(neededLength);
+    if (fit !== null) {
+      piece.reuse = true;
+      const leftover = fit - neededLength;
+      if (leftover > EPS) pool.push(leftover);
+    } else {
+      piece.reuse = false;
+      const waste = origLength - neededLength;
+      if (waste > EPS) pool.push(waste);
+    }
+  }
+  return pieces;
+}
+
 function seededRandom(seed) {
   let t = seed >>> 0;
   return function () {
@@ -82,7 +130,7 @@ function computeHerringboneExact(roomL, roomW, Pl, Pw, centered, alcoves = []) {
       }
     }
   }
-  return pieces;
+  return matchLengthOffcuts(pieces, W);
 }
 
 function shoelaceArea(poly) {
