@@ -24,24 +24,34 @@ function computeTotalPieces(job) {
   for (const s of sections) {
     const L = parseFloat(s.length), W = parseFloat(s.width);
     if (isNaN(L) || isNaN(W) || L <= 0 || W <= 0) continue;
+    // Alcove fields come out of the job's raw string state — every layout
+    // function does arithmetic directly on offset/span/depth (e.g.
+    // `roomL + depth`), which silently string-concatenates instead of
+    // adding if these are left as strings, producing a wildly inflated
+    // "length" and a runaway piece count. ResultsStep.jsx already parses
+    // these before use; this needs the same treatment.
+    const alcoves = (s.alcoves || []).map((a) => ({
+      id: a.id, offset: parseFloat(a.offset) || 0, span: parseFloat(a.span) || 0,
+      depth: parseFloat(a.depth) || 0, wall: a.wall === "near" ? "near" : "far",
+    }));
 
     if (ROW_BASED_METHODS.includes(layoutMethod)) {
       if (Pw > W) continue;
-      const r = computeSectionLayout({ L, W, Pl, Pw, minStagger: parseFloat(job.minStagger) || 20, method: layoutMethod, seed: s.id, unit, gap, alcoves: s.alcoves });
+      const r = computeSectionLayout({ L, W, Pl, Pw, minStagger: parseFloat(job.minStagger) || 20, method: layoutMethod, seed: s.id, unit, gap, alcoves });
       total += r.totalPlanks;
       any = true;
       continue;
     }
 
     let pieces = null;
-    if (layoutMethod === "herringbone" && Pl >= Pw - 1e-9) pieces = computeHerringboneExact(L, W, Pl, Pw, hbCentered);
-    else if (layoutMethod === "chevron" && Pl > Pw + 1e-9) pieces = computeChevronExact(L, W, Pl, Pw, hbCentered);
+    if (layoutMethod === "herringbone" && Pl >= Pw - 1e-9) pieces = computeHerringboneExact(L, W, Pl, Pw, hbCentered, alcoves);
+    else if (layoutMethod === "chevron" && Pl > Pw + 1e-9) pieces = computeChevronExact(L, W, Pl, Pw, hbCentered, alcoves);
     else if (layoutMethod === "basketweave") pieces = computeBasketWeaveExact(L, W, Pl, Pw);
-    else if (layoutMethod === "diagonalplank") pieces = computeDiagonalPlankExact(L, W, Pl, Pw, s.alcoves);
-    else if (layoutMethod === "diagonalherringbone" && Pl >= Pw - 1e-9) pieces = computeDiagonalHerringboneExact(L, W, Pl, Pw);
-    else if (layoutMethod === "pinwheel" && Pl > Pw + 1e-9) pieces = computePinwheelExact(L, W, Pl, Pw);
-    else if (layoutMethod === "doubleherringbone" && Pl >= Pw - 1e-9) pieces = computeDoubleHerringboneExact(L, W, Pl, Pw, hbCentered);
-    else if (layoutMethod === "hexagon") pieces = computeHexagonExact(L, W, Pw);
+    else if (layoutMethod === "diagonalplank") pieces = computeDiagonalPlankExact(L, W, Pl, Pw, alcoves);
+    else if (layoutMethod === "diagonalherringbone" && Pl >= Pw - 1e-9) pieces = computeDiagonalHerringboneExact(L, W, Pl, Pw, alcoves);
+    else if (layoutMethod === "pinwheel" && Pl > Pw + 1e-9) pieces = computePinwheelExact(L, W, Pl, Pw, alcoves);
+    else if (layoutMethod === "doubleherringbone" && Pl >= Pw - 1e-9) pieces = computeDoubleHerringboneExact(L, W, Pl, Pw, hbCentered, alcoves);
+    else if (layoutMethod === "hexagon") pieces = computeHexagonExact(L, W, Pw, alcoves);
     else if (layoutMethod === "versailles" && Pw < Pl - 1e-9) pieces = computeVersaillesExact(L, W, Pl, Pw);
 
     if (pieces) {
