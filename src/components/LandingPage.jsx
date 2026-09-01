@@ -1,4 +1,27 @@
 import { COLORS } from "../lib/colors";
+import { computeHerringboneExact } from "../lib/layoutEngine";
+import { HerringboneExactDiagram } from "./diagrams/HerringboneExactDiagram";
+import { HerringboneExactCutList } from "./cutlists/HerringboneExactCutList";
+
+// A real example, not a mockup — computed once at load time from the same
+// engine every job uses, so it can never drift out of sync with how the
+// app actually behaves. Herringbone + an alcove doubles as proof of the
+// two claims right above it: the pattern continuing into the alcove, and
+// (since the engine now reuses offcuts there) some pieces coming from
+// scrap instead of a fresh plank.
+const DEMO_L = 400, DEMO_W = 300, DEMO_PL = 120, DEMO_PW = 19;
+const DEMO_ALCOVES = [{ id: 1, offset: 80, span: 100, depth: 60, wall: "far" }];
+const demoPieces = computeHerringboneExact(DEMO_L, DEMO_W, DEMO_PL, DEMO_PW, false, DEMO_ALCOVES) || [];
+const demoTotalPlanks = demoPieces.filter((p) => !p.reuse).length;
+const demoUsedArea = demoTotalPlanks * DEMO_PL * DEMO_PW;
+const demoRoomArea = DEMO_L * DEMO_W;
+const demoResult = {
+  herringbonePieces: demoPieces,
+  totalPlanks: demoTotalPlanks,
+  hbCentered: false,
+  alcoves: DEMO_ALCOVES,
+  wasteFactor: demoPieces.length ? (demoUsedArea - demoRoomArea) / demoRoomArea : 0,
+};
 
 const FEATURES = [
   { title: "Alcoves get the real pattern, not scrap", desc: "Most calculators treat an odd nook as a rectangle plus leftover material. LayIt actually continues herringbone, chevron, hexagon, and more straight into the alcove." },
@@ -40,6 +63,17 @@ export function LandingPage({ onGetStarted }) {
             </div>
           ))}
         </div>
+      </section>
+
+      <section style={{ marginBottom: 48 }}>
+        <h2 style={{ fontFamily: "Space Grotesk", fontWeight: 700, fontSize: 22, color: COLORS.ink, textAlign: "center", margin: "0 0 8px" }}>
+          A real example, not a mockup
+        </h2>
+        <p style={{ fontFamily: "Inter", fontSize: 13, color: COLORS.sub, textAlign: "center", maxWidth: 480, margin: "0 auto 20px", lineHeight: 1.5 }}>
+          This diagram and cut list are computed live by LayIt's own engine — a 4m × 3m room with an alcove, herringbone pattern. Watch the pattern carry straight into the alcove instead of stopping at the wall, and some pieces coming from a reused offcut instead of a fresh plank.
+        </p>
+        <HerringboneExactDiagram result={demoResult} L={DEMO_L} W={DEMO_W} unit="cm" pieceLabel="Plank" sectionLabel="example" />
+        <HerringboneExactCutList sectionResults={[demoResult]} unit="cm" pieceLabel="Plank" />
       </section>
 
       <section style={{ marginBottom: 48 }}>
