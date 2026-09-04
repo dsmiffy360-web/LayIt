@@ -194,14 +194,16 @@ export function ResultsStep({ job, updateJob, jobName }) {
       }
     }
     const hbResults = sectionNums.map((s) => {
-      const pieces = computeHerringboneExact(s.L, s.W, nums.Pl, nums.Pw, hbCentered, s.alcoves);
+      const pieces = computeHerringboneExact(s.L, s.W, nums.Pl, nums.Pw, hbCentered, s.alcoves, s.farL);
       if (!pieces) return { ...s, herringbonePieces: null };
       // Pieces satisfied from a reused offcut don't consume an additional
       // plank — that material was already counted against whichever piece
       // originally produced the offcut.
       const totalPlanks = pieces.filter((p) => !p.reuse).length;
       const usedPlanksArea = totalPlanks * nums.Pl * nums.Pw;
-      const roomArea = s.L * s.W;
+      // Trapezoid area formula — reduces to the plain L*W rectangle when
+      // farL equals L (the default), so it's exact for both cases.
+      const roomArea = ((s.L + s.farL) / 2) * s.W;
       return { ...s, herringbonePieces: pieces, totalPlanks, hbCentered, wasteFactor: (usedPlanksArea - roomArea) / roomArea };
     });
     if (hbResults.some((s) => !s.herringbonePieces)) {
@@ -219,7 +221,7 @@ export function ResultsStep({ job, updateJob, jobName }) {
             <div style={{ fontFamily: "Space Grotesk", fontWeight: 600, fontSize: 16, marginBottom: 8 }}>
               {sections.length > 1 ? `${i + 1}. ${sec.label}` : sec.label}
             </div>
-            <HerringboneExactDiagram result={sec} L={sec.L} W={sec.W} unit={unit} pieceLabel={pieceLabel} sectionLabel={`${jobName}-${sec.label}`} />
+            <HerringboneExactDiagram result={sec} L={sec.L} W={sec.W} farL={sec.farL} unit={unit} pieceLabel={pieceLabel} sectionLabel={`${jobName}-${sec.label}`} />
           </div>
         ))}
       </>
@@ -244,7 +246,9 @@ export function ResultsStep({ job, updateJob, jobName }) {
       if (!pieces) return { ...s, chevronPieces: null };
       const totalPlanks = pieces.length;
       const usedPlanksArea = totalPlanks * nums.Pl * nums.Pw;
-      const roomArea = s.L * s.W;
+      // Trapezoid area formula — reduces to the plain L*W rectangle when
+      // farL equals L (the default), so it's exact for both cases.
+      const roomArea = ((s.L + s.farL) / 2) * s.W;
       return { ...s, chevronPieces: pieces, totalPlanks, hbCentered, wasteFactor: (usedPlanksArea - roomArea) / roomArea };
     });
     if (chevResults.some((s) => !s.chevronPieces)) {
@@ -280,10 +284,12 @@ export function ResultsStep({ job, updateJob, jobName }) {
       }
     }
     const bwResults = sectionNums.map((s) => {
-      const pieces = computeBasketWeaveExact(s.L, s.W, nums.Pl, nums.Pw);
+      const pieces = computeBasketWeaveExact(s.L, s.W, nums.Pl, nums.Pw, s.farL);
       const totalPlanks = pieces ? pieces.length : 0;
       const usedPlanksArea = totalPlanks * nums.Pl * nums.Pw;
-      const roomArea = s.L * s.W;
+      // Trapezoid area formula — reduces to the plain L*W rectangle when
+      // farL equals L (the default), so it's exact for both cases.
+      const roomArea = ((s.L + s.farL) / 2) * s.W;
       return { ...s, basketWeavePieces: pieces || [], totalPlanks, wasteFactor: pieces ? (usedPlanksArea - roomArea) / roomArea : 0 };
     });
     if (bwResults.some((s) => s.basketWeavePieces.length === 0)) {
@@ -303,7 +309,7 @@ export function ResultsStep({ job, updateJob, jobName }) {
             <div style={{ fontFamily: "Space Grotesk", fontWeight: 600, fontSize: 16, marginBottom: 8 }}>
               {sections.length > 1 ? `${i + 1}. ${sec.label}` : sec.label}
             </div>
-            <BasketWeaveDiagram result={sec} L={sec.L} W={sec.W} unit={unit} pieceLabel={pieceLabel} sectionLabel={`${jobName}-${sec.label}`} />
+            <BasketWeaveDiagram result={sec} L={sec.L} W={sec.W} farL={sec.farL} unit={unit} pieceLabel={pieceLabel} sectionLabel={`${jobName}-${sec.label}`} />
           </div>
         ))}
       </>
@@ -330,7 +336,9 @@ export function ResultsStep({ job, updateJob, jobName }) {
       if (!pieces) return { ...s, diagonalPieces: null };
       const totalPlanks = pieces.length;
       const usedPlanksArea = totalPlanks * nums.Pl * nums.Pw;
-      const roomArea = s.L * s.W;
+      // Trapezoid area formula — reduces to the plain L*W rectangle when
+      // farL equals L (the default), so it's exact for both cases.
+      const roomArea = ((s.L + s.farL) / 2) * s.W;
       return { ...s, diagonalPieces: pieces, diagonalKind: layoutMethod, totalPlanks, wasteFactor: (usedPlanksArea - roomArea) / roomArea };
     });
     if (diagResults.some((s) => !s.diagonalPieces)) {
@@ -369,11 +377,13 @@ export function ResultsStep({ job, updateJob, jobName }) {
       }
     }
     const pwResults = sectionNums.map((s) => {
-      const pieces = computePinwheelExact(s.L, s.W, nums.Pl, nums.Pw, s.alcoves);
+      const pieces = computePinwheelExact(s.L, s.W, nums.Pl, nums.Pw, s.alcoves, s.farL);
       const totalPlanks = pieces ? pieces.filter((p) => p.kind === "plank").length : 0;
       const totalFillers = pieces ? pieces.filter((p) => p.kind === "filler").length : 0;
       const usedPlanksArea = pieces ? pieces.reduce((sum, p) => sum + p.w * p.h, 0) : 0;
-      const roomArea = s.L * s.W;
+      // Trapezoid area formula — reduces to the plain L*W rectangle when
+      // farL equals L (the default), so it's exact for both cases.
+      const roomArea = ((s.L + s.farL) / 2) * s.W;
       return { ...s, pinwheelPieces: pieces || [], totalPlanks: totalPlanks + totalFillers, wasteFactor: pieces ? (usedPlanksArea - roomArea) / roomArea : 0 };
     });
     if (pwResults.some((s) => s.pinwheelPieces.length === 0)) {
@@ -391,7 +401,7 @@ export function ResultsStep({ job, updateJob, jobName }) {
             <div style={{ fontFamily: "Space Grotesk", fontWeight: 600, fontSize: 16, marginBottom: 8 }}>
               {sections.length > 1 ? `${i + 1}. ${sec.label}` : sec.label}
             </div>
-            <PinwheelDiagram result={sec} L={sec.L} W={sec.W} unit={unit} pieceLabel={pieceLabel} sectionLabel={`${jobName}-${sec.label}`} />
+            <PinwheelDiagram result={sec} L={sec.L} W={sec.W} farL={sec.farL} unit={unit} pieceLabel={pieceLabel} sectionLabel={`${jobName}-${sec.label}`} />
           </div>
         ))}
       </>
@@ -412,11 +422,13 @@ export function ResultsStep({ job, updateJob, jobName }) {
       }
     }
     const dhbResults = sectionNums.map((s) => {
-      const pieces = computeDoubleHerringboneExact(s.L, s.W, nums.Pl, nums.Pw, hbCentered, s.alcoves);
+      const pieces = computeDoubleHerringboneExact(s.L, s.W, nums.Pl, nums.Pw, hbCentered, s.alcoves, s.farL);
       if (!pieces) return { ...s, doubleHerringbonePieces: null };
       const totalPlanks = pieces.length;
       const usedPlanksArea = pieces.reduce((sum, p) => sum + p.w * p.h, 0);
-      const roomArea = s.L * s.W;
+      // Trapezoid area formula — reduces to the plain L*W rectangle when
+      // farL equals L (the default), so it's exact for both cases.
+      const roomArea = ((s.L + s.farL) / 2) * s.W;
       return { ...s, doubleHerringbonePieces: pieces, totalPlanks, hbCentered, wasteFactor: (usedPlanksArea - roomArea) / roomArea };
     });
     if (dhbResults.some((s) => !s.doubleHerringbonePieces)) {
@@ -434,7 +446,7 @@ export function ResultsStep({ job, updateJob, jobName }) {
             <div style={{ fontFamily: "Space Grotesk", fontWeight: 600, fontSize: 16, marginBottom: 8 }}>
               {sections.length > 1 ? `${i + 1}. ${sec.label}` : sec.label}
             </div>
-            <DoubleHerringboneDiagram result={sec} L={sec.L} W={sec.W} unit={unit} pieceLabel={pieceLabel} sectionLabel={`${jobName}-${sec.label}`} />
+            <DoubleHerringboneDiagram result={sec} L={sec.L} W={sec.W} farL={sec.farL} unit={unit} pieceLabel={pieceLabel} sectionLabel={`${jobName}-${sec.label}`} />
           </div>
         ))}
       </>
@@ -458,7 +470,9 @@ export function ResultsStep({ job, updateJob, jobName }) {
       if (!pieces) return { ...s, hexagonPieces: null };
       const totalPlanks = pieces.length;
       const usedPlanksArea = pieces.reduce((sum, p) => sum + p.area, 0);
-      const roomArea = s.L * s.W;
+      // Trapezoid area formula — reduces to the plain L*W rectangle when
+      // farL equals L (the default), so it's exact for both cases.
+      const roomArea = ((s.L + s.farL) / 2) * s.W;
       return { ...s, hexagonPieces: pieces, totalPlanks, wasteFactor: (totalPlanks * hexAreaEst - roomArea) / roomArea };
     });
     if (hexResults.some((s) => !s.hexagonPieces)) {

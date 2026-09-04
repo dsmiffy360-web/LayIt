@@ -3,11 +3,12 @@ import { UNIT_DECIMALS } from "../../lib/layoutEngine";
 
 export function DoubleHerringboneCutList({ sectionResults, unit, pieceLabel = "Plank", checkedPieces = {}, onBump, onReset }) {
   const decimals = UNIT_DECIMALS[unit];
-  let fullCount = 0;
+  let fullCount = 0, angledCount = 0;
   const cutTally = new Map();
   sectionResults.forEach((sec) => {
     (sec.doubleHerringbonePieces || []).forEach((p) => {
       if (p.full) { fullCount++; return; }
+      if (p.angled) { angledCount++; return; }
       const len = p.w >= p.h ? p.w : p.h;
       const key = +len.toFixed(decimals);
       cutTally.set(key, (cutTally.get(key) || 0) + 1);
@@ -33,7 +34,8 @@ export function DoubleHerringboneCutList({ sectionResults, unit, pieceLabel = "P
     <section style={{ background: COLORS.panel, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 18, marginBottom: 18 }}>
       <div style={{ fontFamily: "Space Grotesk", fontWeight: 600, fontSize: 15, marginBottom: 4 }}>Double herringbone cutting list</div>
       <div style={{ fontSize: 12, color: COLORS.sub, marginBottom: 12 }}>
-        Every slot is two half-width planks ripped from standard stock, laid side by side. Square cuts only — herringbone's 90° zigzag doesn't need any angled cuts.
+        Every slot is two half-width planks ripped from standard stock, laid side by side. Square cuts only —
+        herringbone's 90° zigzag doesn't need any angled cuts, except for any piece the room's own angled wall cuts through.
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
         {cutRows.map(([len, count]) => (
@@ -43,6 +45,12 @@ export function DoubleHerringboneCutList({ sectionResults, unit, pieceLabel = "P
           <span style={{ fontFamily: "JetBrains Mono", fontSize: 13 }}>Full {pieceLabel.toLowerCase()}s, no cutting</span>
           <span style={{ fontFamily: "JetBrains Mono", fontSize: 13, fontWeight: 600 }}>× {fullCount}</span>
         </div>
+        {angledCount > 0 && (
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 10px", borderRadius: 6, background: "#FBF3E9", border: `1px solid ${COLORS.accent}` }}>
+            <span style={{ fontFamily: "JetBrains Mono", fontSize: 13 }}>Angled cut along the far wall — measure off the diagram</span>
+            <span style={{ fontFamily: "JetBrains Mono", fontSize: 13, fontWeight: 600 }}>× {angledCount}</span>
+          </div>
+        )}
       </div>
     </section>
   );

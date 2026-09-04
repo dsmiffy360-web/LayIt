@@ -45,13 +45,13 @@ function computeTotalPieces(job) {
     }
 
     let pieces = null;
-    if (layoutMethod === "herringbone" && Pl >= Pw - 1e-9) pieces = computeHerringboneExact(L, W, Pl, Pw, hbCentered, alcoves);
+    if (layoutMethod === "herringbone" && Pl >= Pw - 1e-9) pieces = computeHerringboneExact(L, W, Pl, Pw, hbCentered, alcoves, farL);
     else if (layoutMethod === "chevron" && Pl > Pw + 1e-9) pieces = computeChevronExact(L, W, Pl, Pw, hbCentered, alcoves, farL);
-    else if (layoutMethod === "basketweave") pieces = computeBasketWeaveExact(L, W, Pl, Pw);
+    else if (layoutMethod === "basketweave") pieces = computeBasketWeaveExact(L, W, Pl, Pw, farL);
     else if (layoutMethod === "diagonalplank") pieces = computeDiagonalPlankExact(L, W, Pl, Pw, alcoves, farL);
     else if (layoutMethod === "diagonalherringbone" && Pl >= Pw - 1e-9) pieces = computeDiagonalHerringboneExact(L, W, Pl, Pw, alcoves, farL);
-    else if (layoutMethod === "pinwheel" && Pl > Pw + 1e-9) pieces = computePinwheelExact(L, W, Pl, Pw, alcoves);
-    else if (layoutMethod === "doubleherringbone" && Pl >= Pw - 1e-9) pieces = computeDoubleHerringboneExact(L, W, Pl, Pw, hbCentered, alcoves);
+    else if (layoutMethod === "pinwheel" && Pl > Pw + 1e-9) pieces = computePinwheelExact(L, W, Pl, Pw, alcoves, farL);
+    else if (layoutMethod === "doubleherringbone" && Pl >= Pw - 1e-9) pieces = computeDoubleHerringboneExact(L, W, Pl, Pw, hbCentered, alcoves, farL);
     else if (layoutMethod === "hexagon") pieces = computeHexagonExact(L, W, Pw, alcoves, farL);
     else if (layoutMethod === "versailles" && Pw < Pl - 1e-9) pieces = computeVersaillesExact(L, W, Pl, Pw, farL);
 

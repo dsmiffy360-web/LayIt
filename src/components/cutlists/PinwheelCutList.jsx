@@ -3,7 +3,7 @@ import { UNIT_DECIMALS } from "../../lib/layoutEngine";
 
 export function PinwheelCutList({ sectionResults, unit, pieceLabel = "Plank", checkedPieces = {}, onBump, onReset }) {
   const decimals = UNIT_DECIMALS[unit];
-  let fullPlankCount = 0, fullFillerCount = 0;
+  let fullPlankCount = 0, fullFillerCount = 0, angledPlankCount = 0, angledFillerCount = 0;
   const plankCutTally = new Map();
   const fillerCutTally = new Map();
 
@@ -12,6 +12,10 @@ export function PinwheelCutList({ sectionResults, unit, pieceLabel = "Plank", ch
       const isFiller = p.kind === "filler";
       if (p.full) {
         if (isFiller) fullFillerCount++; else fullPlankCount++;
+        return;
+      }
+      if (p.angled) {
+        if (isFiller) angledFillerCount++; else angledPlankCount++;
         return;
       }
       const len = isFiller ? Math.max(p.w, p.h) : (p.w >= p.h ? p.w : p.h);
@@ -39,7 +43,8 @@ export function PinwheelCutList({ sectionResults, unit, pieceLabel = "Plank", ch
     <section style={{ background: COLORS.panel, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 18, marginBottom: 18 }}>
       <div style={{ fontFamily: "Space Grotesk", fontWeight: 600, fontSize: 15, marginBottom: 4 }}>Pinwheel cutting list</div>
       <div style={{ fontSize: 12, color: COLORS.sub, marginBottom: 12 }}>
-        Square cuts only. Each block is 4 planks around a small square accent piece — most are full length, the rest trimmed to fit the block or the room's edge.
+        Square cuts only, except for any piece the room's own angled wall cuts through. Each block is 4 planks around
+        a small square accent piece — most are full length, the rest trimmed to fit the block or the room's edge.
       </div>
       <div style={{ fontFamily: "JetBrains Mono", fontSize: 11, color: COLORS.accentText, letterSpacing: "0.06em", fontWeight: 600, marginBottom: 6 }}>PLANKS</div>
       <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 14 }}>
@@ -50,6 +55,12 @@ export function PinwheelCutList({ sectionResults, unit, pieceLabel = "Plank", ch
           <span style={{ fontFamily: "JetBrains Mono", fontSize: 13 }}>Full {pieceLabel.toLowerCase()}s, no cutting</span>
           <span style={{ fontFamily: "JetBrains Mono", fontSize: 13, fontWeight: 600 }}>× {fullPlankCount}</span>
         </div>
+        {angledPlankCount > 0 && (
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 10px", borderRadius: 6, background: "#FBF3E9", border: `1px solid ${COLORS.accent}` }}>
+            <span style={{ fontFamily: "JetBrains Mono", fontSize: 13 }}>Angled cut along the far wall — measure off the diagram</span>
+            <span style={{ fontFamily: "JetBrains Mono", fontSize: 13, fontWeight: 600 }}>× {angledPlankCount}</span>
+          </div>
+        )}
       </div>
       <div style={{ fontFamily: "JetBrains Mono", fontSize: 11, color: COLORS.accentText, letterSpacing: "0.06em", fontWeight: 600, marginBottom: 6 }}>CENTER ACCENT SQUARES</div>
       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
@@ -60,6 +71,12 @@ export function PinwheelCutList({ sectionResults, unit, pieceLabel = "Plank", ch
           <span style={{ fontFamily: "JetBrains Mono", fontSize: 13 }}>Full squares, no cutting</span>
           <span style={{ fontFamily: "JetBrains Mono", fontSize: 13, fontWeight: 600 }}>× {fullFillerCount}</span>
         </div>
+        {angledFillerCount > 0 && (
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 10px", borderRadius: 6, background: "#FBF3E9", border: `1px solid ${COLORS.accent}` }}>
+            <span style={{ fontFamily: "JetBrains Mono", fontSize: 13 }}>Angled cut along the far wall — measure off the diagram</span>
+            <span style={{ fontFamily: "JetBrains Mono", fontSize: 13, fontWeight: 600 }}>× {angledFillerCount}</span>
+          </div>
+        )}
       </div>
     </section>
   );

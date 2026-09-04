@@ -215,10 +215,9 @@ export function SetupStep({ job, updateJob }) {
                 <>
                   <Field label={`Length at the far wall (${unit})`} value={s.farLength} onChange={(v) => updateSection(s.id, { farLength: v })} />
                   <p style={{ fontSize: 11, color: COLORS.sub, margin: 0 }}>
-                    "Length" above is measured at the near wall (0{unit} end); this is the same measurement taken at the
-                    far wall. Currently supported for Staggered, Cascade, 1/3 brick, Random, Straight, Chevron,
-                    Diagonal plank, Diagonal herringbone, Hexagon, and Versailles — other patterns will use the
-                    near-wall length only and won't account for the angle.
+                    "Length" above is measured at the near wall (0{unit} end); this is the same measurement taken at
+                    the far wall. Every lay pattern accounts for the angle — a piece the angled wall actually cuts
+                    through shows up as a "measure off the diagram" piece in the cut list instead of a square trim.
                   </p>
                 </>
               )}

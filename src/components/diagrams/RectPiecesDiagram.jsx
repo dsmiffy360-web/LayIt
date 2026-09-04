@@ -2,11 +2,13 @@ import { useRef } from "react";
 import { COLORS } from "../../lib/colors";
 import { exportSvgAsPng } from "../../lib/exportUtils";
 
-export function RectPiecesDiagram({ pieces, L, W, unit, pieceLabel = "Plank", sectionLabel = "layout", label, colorFn, alcoves = [] }) {
+export function RectPiecesDiagram({ pieces, L, W, farL, unit, pieceLabel = "Plank", sectionLabel = "layout", label, colorFn, alcoves = [] }) {
   const svgRef = useRef(null);
   const padL = 44, padT = 24, padR = 14, padB = 14;
+  const effFarL = farL || L;
+  const isTrapezoid = Math.abs(effFarL - L) > 1e-9;
   const virtualW = 320;
-  const scale = virtualW / L;
+  const scale = virtualW / Math.max(L, effFarL);
   const drawW = L * scale;
   const drawH = W * scale;
   // Alcove pieces sit outside the room's 0..L range — extend the canvas so
@@ -16,35 +18,59 @@ export function RectPiecesDiagram({ pieces, L, W, unit, pieceLabel = "Plank", se
   const nearDepth = Math.max(0, ...validAlcoves.filter((a) => a.wall === "near").map((a) => a.depth));
   const farDepth = Math.max(0, ...validAlcoves.filter((a) => a.wall !== "near").map((a) => a.depth));
   const extraL = nearDepth * scale, extraR = farDepth * scale;
-  const svgW = drawW + extraL + extraR + padL + padR;
-  const svgH = drawH + padT + padB + 24;
+  const svgW = Math.max(drawW, effFarL * scale) + extraL + extraR + padL + padR;
+  const svgH = drawH + padT + padB + 24 + (isTrapezoid ? 14 : 0);
   const px = (x) => padL + extraL + x * scale;
   const py = (y) => padT + y * scale;
+  const rightXAt = (yInRoom) => px(L + (effFarL - L) * (W > 0 ? yInRoom / W : 0));
 
   return (
     <section style={{ background: COLORS.blueprint, borderRadius: 10, padding: "14px 12px 18px", marginBottom: 12 }}>
       <div style={{ fontFamily: "JetBrains Mono", fontSize: 11, color: COLORS.chalk, letterSpacing: "0.06em", marginBottom: 6 }}>
-        LAYOUT — {L}{unit} × {W}{unit} · {label} · {pieces.length} {pieceLabel.toLowerCase()}s
+        LAYOUT — {L}{unit}{isTrapezoid ? ` – ${effFarL}${unit}` : ""} × {W}{unit} · {label} · {pieces.length} {pieceLabel.toLowerCase()}s
       </div>
       <svg ref={svgRef} viewBox={`0 0 ${svgW} ${svgH}`} width="100%" height="auto" style={{ display: "block" }} preserveAspectRatio="xMidYMid meet" role="img" aria-labelledby="rect-diagram-title">
-        <title id="rect-diagram-title">{label} layout for a {L}{unit} by {W}{unit} room, {pieces.length} pieces</title>
+        <title id="rect-diagram-title">{label} layout for a {L}{unit} by {W}{unit} room{isTrapezoid ? ` (far wall ${effFarL}${unit})` : ""}, {pieces.length} pieces</title>
         <line x1={px(0)} y1={14} x2={px(L)} y2={14} stroke={COLORS.chalkDim} strokeWidth="1" />
         <text x={px(L / 2)} y={10} fill={COLORS.chalk} fontSize="11" fontFamily="JetBrains Mono" textAnchor="middle">{L}{unit}</text>
         <text x={14} y={py(W / 2)} fill={COLORS.chalk} fontSize="11" fontFamily="JetBrains Mono" textAnchor="middle" transform={`rotate(-90 14 ${py(W / 2)})`}>{W}{unit}</text>
         {pieces.map((p, i) => (
-          <rect
-            key={i}
-            x={px(p.x)}
-            y={py(p.y)}
-            width={Math.max(p.w * scale - 0.5, 0)}
-            height={Math.max(p.h * scale - 0.5, 0)}
-            fill={colorFn(p, i)}
-            stroke={COLORS.blueprint}
-            strokeWidth="0.5"
-            opacity={p.inAlcove ? 0.85 : 1}
-          />
+          p.poly ? (
+            <polygon
+              key={i}
+              points={p.poly.map(([x, y]) => `${px(x)},${py(y)}`).join(" ")}
+              fill={colorFn(p, i)}
+              stroke={COLORS.blueprint}
+              strokeWidth="0.5"
+              opacity={p.inAlcove ? 0.85 : 1}
+            />
+          ) : (
+            <rect
+              key={i}
+              x={px(p.x)}
+              y={py(p.y)}
+              width={Math.max(p.w * scale - 0.5, 0)}
+              height={Math.max(p.h * scale - 0.5, 0)}
+              fill={colorFn(p, i)}
+              stroke={COLORS.blueprint}
+              strokeWidth="0.5"
+              opacity={p.inAlcove ? 0.85 : 1}
+            />
+          )
         ))}
-        <rect x={px(0)} y={py(0)} width={drawW} height={drawH} fill="none" stroke={COLORS.chalk} strokeWidth="1.5" />
+        {isTrapezoid ? (
+          <polygon
+            points={`${px(0)},${py(0)} ${px(L)},${py(0)} ${rightXAt(W)},${py(W)} ${px(0)},${py(W)}`}
+            fill="none" stroke={COLORS.chalk} strokeWidth="1.5"
+          />
+        ) : (
+          <rect x={px(0)} y={py(0)} width={drawW} height={drawH} fill="none" stroke={COLORS.chalk} strokeWidth="1.5" />
+        )}
+        {isTrapezoid && (
+          <text x={px(L / 2)} y={py(W) + 12} fill={COLORS.accentText} fontSize="10" fontFamily="JetBrains Mono" textAnchor="middle">
+            {effFarL}{unit} (far wall)
+          </text>
+        )}
       </svg>
       {validAlcoves.length > 0 && (
         <p style={{ fontSize: 11, color: COLORS.chalk, marginTop: 8, marginBottom: 0, fontFamily: "Inter" }}>

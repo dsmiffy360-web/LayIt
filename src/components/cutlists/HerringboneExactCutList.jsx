@@ -3,13 +3,15 @@ import { UNIT_DECIMALS } from "../../lib/layoutEngine";
 
 export function HerringboneExactCutList({ sectionResults, unit, pieceLabel = "Plank", checkedPieces = {}, onBump, onReset }) {
   const decimals = UNIT_DECIMALS[unit];
-  let fullCount = 0;
+  let fullCount = 0, angledCount = 0;
   const cutTally = new Map(); // "wxh" -> count
 
   sectionResults.forEach((sec) => {
     (sec.herringbonePieces || []).forEach((p) => {
       if (p.full) {
         fullCount++;
+      } else if (p.angled) {
+        angledCount++;
       } else if (!p.reuse) {
         const key = `${+p.w.toFixed(decimals)}x${+p.h.toFixed(decimals)}`;
         cutTally.set(key, (cutTally.get(key) || 0) + 1);
@@ -84,6 +86,22 @@ export function HerringboneExactCutList({ sectionResults, unit, pieceLabel = "Pl
           <span style={{ fontFamily: "JetBrains Mono", fontSize: 13 }}>Full {pieceLabel.toLowerCase()}s, no cutting</span>
           <span style={{ fontFamily: "JetBrains Mono", fontSize: 13, fontWeight: 600 }}>× {fullCount}</span>
         </div>
+        {angledCount > 0 && (
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              padding: "8px 10px",
+              borderRadius: 6,
+              background: "#FBF3E9",
+              border: `1px solid ${COLORS.accent}`,
+            }}
+          >
+            <span style={{ fontFamily: "JetBrains Mono", fontSize: 13 }}>Angled cut along the far wall — measure off the diagram</span>
+            <span style={{ fontFamily: "JetBrains Mono", fontSize: 13, fontWeight: 600 }}>× {angledCount}</span>
+          </div>
+        )}
       </div>
       <p style={{ fontSize: 12, color: COLORS.sub, marginTop: 12, marginBottom: 0 }}>
         Start your first course flush with one corner — every piece above is positioned relative to that starting corner, matching the diagram.

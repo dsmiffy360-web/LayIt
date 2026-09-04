@@ -33,7 +33,7 @@ function matchLengthOffcuts(pieces, boardWidth) {
   };
 
   for (const piece of pieces) {
-    if (piece.full || piece.inAlcove) { piece.reuse = false; continue; }
+    if (piece.full || piece.inAlcove || piece.angled) { piece.reuse = false; continue; }
     const wChanged = Math.abs(piece.w - piece.origW) > EPS;
     const hChanged = Math.abs(piece.h - piece.origH) > EPS;
     if (wChanged === hChanged) { piece.reuse = false; continue; } // both axes (a corner) or neither
@@ -66,12 +66,14 @@ function seededRandom(seed) {
   };
 }
 
-function computeHerringboneExact(roomL, roomW, Pl, Pw, centered, alcoves = []) {
+function computeHerringboneExact(roomL, roomW, Pl, Pw, centered, alcoves = [], farL = roomL) {
   const W = Pw, L = Pl;
   if (L < W - 1e-9) return null; // length must be at least the width
 
-  const alcoveRects = alcoveRectsFor(roomL, alcoves);
-  const { minX, maxX, minY, maxY } = effectiveBounds(roomL, roomW, alcoveRects);
+  const alcoveRects = alcoveRectsFor(roomL, alcoves, roomW, farL);
+  const { minX, maxX, minY, maxY } = effectiveBounds(roomL, roomW, alcoveRects, farL);
+  const roomPoly = roomBoundaryPoly(roomL, roomW, farL);
+  const isTrapezoid = Math.abs(farL - roomL) > 1e-9;
   const effSpan = (maxX - minX) + (maxY - minY);
 
   const kSpan = Math.ceil(effSpan / W) + 4;
@@ -115,10 +117,10 @@ function computeHerringboneExact(roomL, roomW, Pl, Pw, centered, alcoves = []) {
       const px = p.x + dx, py = p.y + dy;
       if (px + p.w < minX || px > maxX || py + p.h < minY || py > maxY) continue;
 
-      const main = clipRectToBounds(px, py, p.w, p.h, 0, 0, roomL, roomW);
+      const main = clipRectAgainstRoom(px, py, p.w, p.h, roomL, roomW, roomPoly, isTrapezoid);
       if (main) {
-        const full = Math.abs(main.w - p.w) < 1e-6 && Math.abs(main.h - p.h) < 1e-6;
-        pieces.push({ x: main.x, y: main.y, w: main.w, h: main.h, full, origW: p.w, origH: p.h });
+        const full = !main.angled && Math.abs(main.w - p.w) < 1e-6 && Math.abs(main.h - p.h) < 1e-6;
+        pieces.push({ x: main.x, y: main.y, w: main.w, h: main.h, full, origW: p.w, origH: p.h, poly: main.poly, angled: main.angled });
       }
 
       for (const rect of alcoveRects) {
@@ -387,9 +389,12 @@ function computeChevronExact(roomL, roomW, Lraw, W, centered, alcoves = [], farL
   return pieces;
 }
 
-function computeBasketWeaveExact(roomL, roomW, Pl, Pw) {
+function computeBasketWeaveExact(roomL, roomW, Pl, Pw, farL = roomL) {
   const S = Pl;
-  const nBlocksX = Math.ceil(roomL / S);
+  const maxL = Math.max(roomL, farL);
+  const roomPoly = roomBoundaryPoly(roomL, roomW, farL);
+  const isTrapezoid = Math.abs(farL - roomL) > 1e-9;
+  const nBlocksX = Math.ceil(maxL / S);
   const nBlocksY = Math.ceil(roomW / S);
   const estimatedWork = nBlocksX * nBlocksY * Math.ceil(S / Pw);
   if (!isFinite(estimatedWork) || estimatedWork > 400000) return null;
@@ -398,21 +403,29 @@ function computeBasketWeaveExact(roomL, roomW, Pl, Pw) {
   for (let bx = 0; bx < nBlocksX; bx++) {
     for (let by = 0; by < nBlocksY; by++) {
       const blockX0 = bx * S, blockY0 = by * S;
-      const blockW = Math.min(S, roomL - blockX0);
+      const blockW = Math.min(S, maxL - blockX0);
       const blockH = Math.min(S, roomW - blockY0);
       const horiz = (bx + by) % 2 === 0;
       if (horiz) {
         let y = blockY0;
         while (y < blockY0 + blockH - 1e-9) {
           const stripH = Math.min(Pw, blockY0 + blockH - y);
-          pieces.push({ x: blockX0, y, w: blockW, h: stripH, full: Math.abs(blockW - Pl) < 1e-6 && Math.abs(stripH - Pw) < 1e-6, orient: "H" });
+          const clipped = clipRectAgainstRoom(blockX0, y, blockW, stripH, roomL, roomW, roomPoly, isTrapezoid);
+          if (clipped) {
+            const full = !clipped.angled && Math.abs(clipped.w - Pl) < 1e-6 && Math.abs(clipped.h - Pw) < 1e-6;
+            pieces.push({ x: clipped.x, y: clipped.y, w: clipped.w, h: clipped.h, full, orient: "H", poly: clipped.poly, angled: clipped.angled });
+          }
           y += stripH;
         }
       } else {
         let x = blockX0;
         while (x < blockX0 + blockW - 1e-9) {
           const stripW = Math.min(Pw, blockX0 + blockW - x);
-          pieces.push({ x, y: blockY0, w: stripW, h: blockH, full: Math.abs(stripW - Pw) < 1e-6 && Math.abs(blockH - Pl) < 1e-6, orient: "V" });
+          const clipped = clipRectAgainstRoom(x, blockY0, stripW, blockH, roomL, roomW, roomPoly, isTrapezoid);
+          if (clipped) {
+            const full = !clipped.angled && Math.abs(clipped.w - Pw) < 1e-6 && Math.abs(clipped.h - Pl) < 1e-6;
+            pieces.push({ x: clipped.x, y: clipped.y, w: clipped.w, h: clipped.h, full, orient: "V", poly: clipped.poly, angled: clipped.angled });
+          }
           x += stripW;
         }
       }
@@ -487,6 +500,36 @@ function clipRectToBounds(x, y, w, h, x0, y0, x1, y1) {
   const iw = ix1 - ix0, ih = iy1 - iy0;
   if (iw <= 1e-9 || ih <= 1e-9) return null;
   return { x: ix0, y: iy0, w: iw, h: ih };
+}
+
+// Clips an axis-aligned rectangle piece against the room's own boundary —
+// a plain rect via the exact old fast path when the room isn't a
+// trapezoid (byte-identical to before these patterns supported an angled
+// wall), or the general polygon clipper when it is. Most pieces near a
+// trapezoid's angled wall still clip to a (smaller) plain rectangle —
+// only a piece the slanted line actually passes through comes back as a
+// genuine polygon, flagged `angled: true` so a cut list that promises
+// "square cuts only" can tell an installer it needs measuring off the
+// diagram instead of a straight trim.
+function clipRectAgainstRoom(x, y, w, h, roomL, roomW, roomPoly, isTrapezoid) {
+  if (!isTrapezoid) return clipRectToBounds(x, y, w, h, 0, 0, roomL, roomW);
+  const rectPoly = [[x, y], [x + w, y], [x + w, y + h], [x, y + h]];
+  const clipped = clipPolyToConvexPoly(rectPoly, roomPoly);
+  if (clipped.length < 3) return null;
+  const xs = clipped.map((p) => p[0]), ys = clipped.map((p) => p[1]);
+  const bx = Math.min(...xs), by = Math.min(...ys);
+  const bw = Math.max(...xs) - bx, bh = Math.max(...ys) - by;
+  if (bw <= 1e-9 || bh <= 1e-9) return null;
+  // A per-vertex "does it sit on the bbox border" check can be fooled by a
+  // degenerate duplicate vertex the clipper emits when a rect corner lands
+  // exactly on the trapezoid's slanted edge — comparing the polygon's own
+  // area against its bounding box's area is robust to that: a true
+  // (unclipped-by-the-slant) rectangle fills its bbox exactly, while any
+  // angled cut leaves a genuine gap.
+  const clippedArea = shoelaceArea(clipped);
+  const isRect = Math.abs(clippedArea - bw * bh) < 1e-6;
+  if (isRect) return { x: bx, y: by, w: bw, h: bh };
+  return { x: bx, y: by, w: bw, h: bh, poly: clipped, angled: true };
 }
 
 function computeDiagonalPlankExact(roomL, roomW, Pl, Pw, alcoves = [], farL = roomL) {
@@ -617,12 +660,14 @@ function computeDiagonalHerringboneExact(roomL, roomW, Pl, Pw, alcoves = [], far
   return pieces;
 }
 
-function computePinwheelExact(roomL, roomW, Pl, Pw, alcoves = []) {
+function computePinwheelExact(roomL, roomW, Pl, Pw, alcoves = [], farL = roomL) {
   if (Pl <= Pw + 1e-9) return null;
   const S = Pl + Pw;
   const centerSide = Pl - Pw;
-  const alcoveRects = alcoveRectsFor(roomL, alcoves);
-  const { minX, maxX, minY, maxY } = effectiveBounds(roomL, roomW, alcoveRects);
+  const alcoveRects = alcoveRectsFor(roomL, alcoves, roomW, farL);
+  const { minX, maxX, minY, maxY } = effectiveBounds(roomL, roomW, alcoveRects, farL);
+  const roomPoly = roomBoundaryPoly(roomL, roomW, farL);
+  const isTrapezoid = Math.abs(farL - roomL) > 1e-9;
   // Pinwheel blocks are identical regardless of grid position (unlike basket
   // weave, no alternating orientation to continue) so extending the grid to
   // negative/beyond-roomL indices is just widening the loop bounds.
@@ -643,9 +688,10 @@ function computePinwheelExact(roomL, roomW, Pl, Pw, alcoves = []) {
         { kind: "filler", x: ox + Pw, y: oy + Pw, w: centerSide, h: centerSide },
       ];
       for (const b of block) {
-        const main = clipRectToBounds(b.x, b.y, b.w, b.h, 0, 0, roomL, roomW);
+        const main = clipRectAgainstRoom(b.x, b.y, b.w, b.h, roomL, roomW, roomPoly, isTrapezoid);
         if (main) {
-          pieces.push({ x: main.x, y: main.y, w: main.w, h: main.h, kind: b.kind, full: Math.abs(main.w - b.w) < 1e-6 && Math.abs(main.h - b.h) < 1e-6 });
+          const full = !main.angled && Math.abs(main.w - b.w) < 1e-6 && Math.abs(main.h - b.h) < 1e-6;
+          pieces.push({ x: main.x, y: main.y, w: main.w, h: main.h, kind: b.kind, full, poly: main.poly, angled: main.angled });
         }
         for (const rect of alcoveRects) {
           const clipped = clipRectToBounds(b.x, b.y, b.w, b.h, rect.x0, rect.y0, rect.x1, rect.y1);
@@ -659,10 +705,12 @@ function computePinwheelExact(roomL, roomW, Pl, Pw, alcoves = []) {
   return pieces;
 }
 
-function computeDoubleHerringboneExact(roomL, roomW, Pl, Pw, centered, alcoves = []) {
+function computeDoubleHerringboneExact(roomL, roomW, Pl, Pw, centered, alcoves = [], farL = roomL) {
   if (Pl < Pw - 1e-9) return null;
-  const alcoveRects = alcoveRectsFor(roomL, alcoves);
-  const { minX, maxX, minY, maxY } = effectiveBounds(roomL, roomW, alcoveRects);
+  const alcoveRects = alcoveRectsFor(roomL, alcoves, roomW, farL);
+  const { minX, maxX, minY, maxY } = effectiveBounds(roomL, roomW, alcoveRects, farL);
+  const roomPoly = roomBoundaryPoly(roomL, roomW, farL);
+  const isTrapezoid = Math.abs(farL - roomL) > 1e-9;
   const diag = (maxX - minX) + (maxY - minY);
   const dy = Pw;
 
@@ -726,9 +774,10 @@ function computeDoubleHerringboneExact(roomL, roomW, Pl, Pw, centered, alcoves =
     for (const s of subs) {
       if (s.x + s.w < minX || s.x > maxX || s.y + s.h < minY || s.y > maxY) continue;
 
-      const main = clipRectToBounds(s.x, s.y, s.w, s.h, 0, 0, roomL, roomW);
+      const main = clipRectAgainstRoom(s.x, s.y, s.w, s.h, roomL, roomW, roomPoly, isTrapezoid);
       if (main) {
-        pieces.push({ x: main.x, y: main.y, w: main.w, h: main.h, full: Math.abs(main.w - s.w) < 1e-6 && Math.abs(main.h - s.h) < 1e-6 });
+        const full = !main.angled && Math.abs(main.w - s.w) < 1e-6 && Math.abs(main.h - s.h) < 1e-6;
+        pieces.push({ x: main.x, y: main.y, w: main.w, h: main.h, full, poly: main.poly, angled: main.angled });
       }
 
       for (const rect of alcoveRects) {
