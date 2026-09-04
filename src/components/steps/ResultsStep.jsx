@@ -240,7 +240,7 @@ export function ResultsStep({ job, updateJob, jobName }) {
       }
     }
     const chevResults = sectionNums.map((s) => {
-      const pieces = computeChevronExact(s.L, s.W, nums.Pl, nums.Pw, hbCentered, s.alcoves);
+      const pieces = computeChevronExact(s.L, s.W, nums.Pl, nums.Pw, hbCentered, s.alcoves, s.farL);
       if (!pieces) return { ...s, chevronPieces: null };
       const totalPlanks = pieces.length;
       const usedPlanksArea = totalPlanks * nums.Pl * nums.Pw;
@@ -262,7 +262,7 @@ export function ResultsStep({ job, updateJob, jobName }) {
             <div style={{ fontFamily: "Space Grotesk", fontWeight: 600, fontSize: 16, marginBottom: 8 }}>
               {sections.length > 1 ? `${i + 1}. ${sec.label}` : sec.label}
             </div>
-            <ChevronExactDiagram result={sec} L={sec.L} W={sec.W} unit={unit} pieceLabel={pieceLabel} sectionLabel={`${jobName}-${sec.label}`} />
+            <ChevronExactDiagram result={sec} L={sec.L} W={sec.W} farL={sec.farL} unit={unit} pieceLabel={pieceLabel} sectionLabel={`${jobName}-${sec.label}`} />
           </div>
         ))}
       </>
@@ -325,8 +325,8 @@ export function ResultsStep({ job, updateJob, jobName }) {
     }
     const diagResults = sectionNums.map((s) => {
       const pieces = layoutMethod === "diagonalplank"
-        ? computeDiagonalPlankExact(s.L, s.W, nums.Pl, nums.Pw, s.alcoves)
-        : computeDiagonalHerringboneExact(s.L, s.W, nums.Pl, nums.Pw, s.alcoves);
+        ? computeDiagonalPlankExact(s.L, s.W, nums.Pl, nums.Pw, s.alcoves, s.farL)
+        : computeDiagonalHerringboneExact(s.L, s.W, nums.Pl, nums.Pw, s.alcoves, s.farL);
       if (!pieces) return { ...s, diagonalPieces: null };
       const totalPlanks = pieces.length;
       const usedPlanksArea = totalPlanks * nums.Pl * nums.Pw;
@@ -348,7 +348,7 @@ export function ResultsStep({ job, updateJob, jobName }) {
             <div style={{ fontFamily: "Space Grotesk", fontWeight: 600, fontSize: 16, marginBottom: 8 }}>
               {sections.length > 1 ? `${i + 1}. ${sec.label}` : sec.label}
             </div>
-            <DiagonalExactDiagram result={sec} L={sec.L} W={sec.W} unit={unit} pieceLabel={pieceLabel} sectionLabel={`${jobName}-${sec.label}`} />
+            <DiagonalExactDiagram result={sec} L={sec.L} W={sec.W} farL={sec.farL} unit={unit} pieceLabel={pieceLabel} sectionLabel={`${jobName}-${sec.label}`} />
           </div>
         ))}
       </>
@@ -454,7 +454,7 @@ export function ResultsStep({ job, updateJob, jobName }) {
     }
     const hexAreaEst = ((3 * Math.sqrt(3)) / 2) * (nums.Pw / Math.sqrt(3)) * (nums.Pw / Math.sqrt(3));
     const hexResults = sectionNums.map((s) => {
-      const pieces = computeHexagonExact(s.L, s.W, nums.Pw, s.alcoves);
+      const pieces = computeHexagonExact(s.L, s.W, nums.Pw, s.alcoves, s.farL);
       if (!pieces) return { ...s, hexagonPieces: null };
       const totalPlanks = pieces.length;
       const usedPlanksArea = pieces.reduce((sum, p) => sum + p.area, 0);
@@ -476,7 +476,7 @@ export function ResultsStep({ job, updateJob, jobName }) {
             <div style={{ fontFamily: "Space Grotesk", fontWeight: 600, fontSize: 16, marginBottom: 8 }}>
               {sections.length > 1 ? `${i + 1}. ${sec.label}` : sec.label}
             </div>
-            <HexagonDiagram result={sec} L={sec.L} W={sec.W} unit={unit} pieceLabel={pieceLabel} sectionLabel={`${jobName}-${sec.label}`} />
+            <HexagonDiagram result={sec} L={sec.L} W={sec.W} farL={sec.farL} unit={unit} pieceLabel={pieceLabel} sectionLabel={`${jobName}-${sec.label}`} />
           </div>
         ))}
       </>
@@ -497,7 +497,7 @@ export function ResultsStep({ job, updateJob, jobName }) {
       }
     }
     const versResults = sectionNums.map((s) => {
-      const pieces = computeVersaillesExact(s.L, s.W, nums.Pl, nums.Pw);
+      const pieces = computeVersaillesExact(s.L, s.W, nums.Pl, nums.Pw, s.farL);
       if (!pieces) return { ...s, versaillesPieces: null };
       const totalPlanks = pieces.length;
       return { ...s, versaillesPieces: pieces, totalPlanks, wasteFactor: 0 };
@@ -519,7 +519,7 @@ export function ResultsStep({ job, updateJob, jobName }) {
             <div style={{ fontFamily: "Space Grotesk", fontWeight: 600, fontSize: 16, marginBottom: 8 }}>
               {sections.length > 1 ? `${i + 1}. ${sec.label}` : sec.label}
             </div>
-            <VersaillesDiagram result={sec} L={sec.L} W={sec.W} unit={unit} pieceLabel={pieceLabel} sectionLabel={`${jobName}-${sec.label}`} />
+            <VersaillesDiagram result={sec} L={sec.L} W={sec.W} farL={sec.farL} unit={unit} pieceLabel={pieceLabel} sectionLabel={`${jobName}-${sec.label}`} />
           </div>
         ))}
       </>

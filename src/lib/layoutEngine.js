@@ -175,12 +175,74 @@ function clipPolyToRect(poly, x0, y0, x1, y1) {
   return output;
 }
 
-function computeChevronExact(roomL, roomW, Lraw, W, centered, alcoves = []) {
+// General convex-polygon clip (Sutherland-Hodgman against an arbitrary
+// convex clip polygon, not just an axis-aligned rect) — lets the exact-
+// tiling patterns below clip against a trapezoidal room boundary (an
+// angled far wall) the same way clipPolyToRect clips against a plain
+// rectangle. Works regardless of the clip polygon's winding direction.
+// Verified against clipPolyToRect for both windings, and against the
+// trapezoid area formula via grid-tiling, before being wired in below.
+function clipPolyToConvexPoly(subject, clip) {
+  const n = clip.length;
+  let signedArea = 0;
+  for (let i = 0; i < n; i++) {
+    const [x1, y1] = clip[i], [x2, y2] = clip[(i + 1) % n];
+    signedArea += x1 * y2 - x2 * y1;
+  }
+  const sign = signedArea >= 0 ? 1 : -1;
+  let output = subject;
+  for (let e = 0; e < n; e++) {
+    if (output.length === 0) break;
+    const [ax, ay] = clip[e], [bx, by] = clip[(e + 1) % n];
+    const dx = bx - ax, dy = by - ay;
+    const inside = (p) => sign * (dx * (p[1] - ay) - dy * (p[0] - ax)) >= -1e-9;
+    const intersect = (p1, p2) => {
+      const segX = p2[0] - p1[0], segY = p2[1] - p1[1];
+      const denom = dx * segY - dy * segX;
+      if (Math.abs(denom) < 1e-12) return p1;
+      const t = (dx * (p1[1] - ay) - dy * (p1[0] - ax)) / denom;
+      return [p1[0] - t * segX, p1[1] - t * segY];
+    };
+    const input = output;
+    output = [];
+    for (let i = 0; i < input.length; i++) {
+      const cur = input[i], prev = input[(i - 1 + input.length) % input.length];
+      const curIn = inside(cur), prevIn = inside(prev);
+      if (curIn) {
+        if (!prevIn) output.push(intersect(prev, cur));
+        output.push(cur);
+      } else if (prevIn) {
+        output.push(intersect(prev, cur));
+      }
+    }
+  }
+  return output;
+}
+
+// The room's own boundary as a polygon — a rectangle when farL equals L
+// (the default), or a trapezoid when the far wall is angled. Exact-tiling
+// patterns clip generated pieces against this instead of a fixed rect, so
+// an angled far wall works the same way it already does for the row-based
+// patterns in computeSectionLayout.
+function roomBoundaryPoly(roomL, roomW, farL) {
+  const fl = farL || roomL;
+  return [[0, 0], [roomL, 0], [fl, roomW], [0, roomW]];
+}
+
+function computeChevronExact(roomL, roomW, Lraw, W, centered, alcoves = [], farL = roomL) {
   const Lp = Lraw - W;
   if (Lp <= 0) return null;
   const d = 1 / Math.sqrt(2);
-  const alcoveRects = alcoveRectsFor(roomL, alcoves);
-  const { minX, maxX, minY, maxY } = effectiveBounds(roomL, roomW, alcoveRects);
+  const alcoveRects = alcoveRectsFor(roomL, alcoves, roomW, farL);
+  const { minX, maxX, minY, maxY } = effectiveBounds(roomL, roomW, alcoveRects, farL);
+  const roomPoly = roomBoundaryPoly(roomL, roomW, farL);
+  // A plain rectangle keeps clipping via the original, exact rect-clip path
+  // (byte-identical to before this pattern supported a trapezoid) — only an
+  // actually-angled far wall pays for the general polygon clip, which
+  // introduces harmless floating-point noise at the ~1e-13 level from its
+  // different arithmetic path.
+  const isTrapezoid = Math.abs(farL - roomL) > 1e-9;
+  const clipMain = isTrapezoid ? (poly) => clipPolyToConvexPoly(poly, roomPoly) : (poly) => clipPolyToRect(poly, 0, 0, roomL, roomW);
   const makeA = (x0, y0) => [[x0, y0], [x0 + Lp * d, y0 + Lp * d], [x0 + Lp * d, y0 + Lp * d + W * Math.SQRT2], [x0, y0 + W * Math.SQRT2]];
   const makeB = (x0, y0) => [[x0, y0], [x0 + Lp * d, y0 - Lp * d], [x0 + Lp * d, y0 - Lp * d + W * Math.SQRT2], [x0, y0 + W * Math.SQRT2]];
 
@@ -256,7 +318,7 @@ function computeChevronExact(roomL, roomW, Lraw, W, centered, alcoves = []) {
         const xs = p.map((q) => q[0]), ys = p.map((q) => q[1]);
         if (Math.max(...xs) < minX || Math.min(...xs) > maxX || Math.max(...ys) < minY || Math.min(...ys) > maxY) continue;
 
-        const clipped = clipPolyToRect(p, 0, 0, roomL, roomW);
+        const clipped = clipMain(p);
         if (clipped.length >= 3) {
           const area = shoelaceArea(clipped);
           if (area >= 1e-6) {
@@ -301,7 +363,7 @@ function computeChevronExact(roomL, roomW, Lraw, W, centered, alcoves = []) {
       const xs = p.map((q) => q[0]), ys = p.map((q) => q[1]);
       if (Math.max(...xs) < minX || Math.min(...xs) > maxX || Math.max(...ys) < minY || Math.min(...ys) > maxY) continue;
 
-      const clipped = clipPolyToRect(p, 0, 0, roomL, roomW);
+      const clipped = clipMain(p);
       if (clipped.length >= 3) {
         const area = shoelaceArea(clipped);
         if (area >= 1e-6) {
@@ -386,21 +448,31 @@ function extractDiagonalCutSpec(clippedPoly, x0, y0, kind, dim) {
 // wall (x from roomL to roomL+depth), a "near" one sits just before the
 // start wall (x from -depth to 0) — same convention BlueprintDiagram and
 // the row-based engine already use.
-function alcoveRectsFor(roomL, alcoves) {
+function alcoveRectsFor(roomL, alcoves, roomW, farL) {
+  const fl = farL || roomL;
   return (alcoves || [])
     .filter((a) => a.span > 0 && a.depth > 0)
-    .map((a) => (a.wall === "near"
-      ? { x0: -a.depth, y0: a.offset, x1: 0, y1: a.offset + a.span }
-      : { x0: roomL, y0: a.offset, x1: roomL + a.depth, y1: a.offset + a.span }));
+    .map((a) => {
+      if (a.wall === "near") return { x0: -a.depth, y0: a.offset, x1: 0, y1: a.offset + a.span };
+      // A far alcove attaches to the far wall, which slants when the room
+      // is a trapezoid — approximate its attach point using the wall's
+      // position at the alcove's own vertical center, the same
+      // representative-value simplification computeSectionLayout uses for
+      // a row's length.
+      const midY = a.offset + a.span / 2;
+      const attachX = roomW > 0 ? roomL + (fl - roomL) * (midY / roomW) : roomL;
+      return { x0: attachX, y0: a.offset, x1: attachX + a.depth, y1: a.offset + a.span };
+    });
 }
 
 // The bounding box of the room plus every alcove — how far a candidate-
 // piece sweep needs to reach before clipping, shared by every pattern that
 // supports alcove continuation.
-function effectiveBounds(roomL, roomW, alcoveRects) {
+function effectiveBounds(roomL, roomW, alcoveRects, farL) {
+  const fl = farL || roomL;
   return {
     minX: Math.min(0, ...alcoveRects.map((r) => r.x0)),
-    maxX: Math.max(roomL, ...alcoveRects.map((r) => r.x1)),
+    maxX: Math.max(roomL, fl, ...alcoveRects.map((r) => r.x1)),
     minY: Math.min(0, ...alcoveRects.map((r) => r.y0)),
     maxY: Math.max(roomW, ...alcoveRects.map((r) => r.y1)),
   };
@@ -417,15 +489,19 @@ function clipRectToBounds(x, y, w, h, x0, y0, x1, y1) {
   return { x: ix0, y: iy0, w: iw, h: ih };
 }
 
-function computeDiagonalPlankExact(roomL, roomW, Pl, Pw, alcoves = []) {
+function computeDiagonalPlankExact(roomL, roomW, Pl, Pw, alcoves = [], farL = roomL) {
   const d = 1 / Math.sqrt(2);
   const makePlank = (x0, y0) => [[x0, y0], [x0 + Pl * d, y0 + Pl * d], [x0 + Pl * d - Pw * d, y0 + Pl * d + Pw * d], [x0 - Pw * d, y0 + Pw * d]];
-  const alcoveRects = alcoveRectsFor(roomL, alcoves);
-  // Widen the swept region to whatever extra space the alcoves add, so
-  // candidate planks are actually generated out there before clipping —
-  // otherwise pieces that would only fall inside an alcove never get built.
+  const alcoveRects = alcoveRectsFor(roomL, alcoves, roomW, farL);
+  const roomPoly = roomBoundaryPoly(roomL, roomW, farL);
+  const isTrapezoid = Math.abs(farL - roomL) > 1e-9;
+  const clipMain = isTrapezoid ? (poly) => clipPolyToConvexPoly(poly, roomPoly) : (poly) => clipPolyToRect(poly, 0, 0, roomL, roomW);
+  // Widen the swept region to whatever extra space the alcoves (or a wider
+  // far wall) add, so candidate planks are actually generated out there
+  // before clipping — otherwise pieces that would only fall inside an
+  // alcove or the widened region never get built.
   const minX = Math.min(0, ...alcoveRects.map((r) => r.x0));
-  const maxX = Math.max(roomL, ...alcoveRects.map((r) => r.x1));
+  const maxX = Math.max(roomL, farL, ...alcoveRects.map((r) => r.x1));
   const minY = Math.min(0, ...alcoveRects.map((r) => r.y0));
   const maxY = Math.max(roomW, ...alcoveRects.map((r) => r.y1));
   const diag = (maxX - minX) + (maxY - minY);
@@ -446,7 +522,7 @@ function computeDiagonalPlankExact(roomL, roomW, Pl, Pw, alcoves = []) {
       const xs = p.map((q) => q[0]), ys = p.map((q) => q[1]);
       if (Math.max(...xs) < minX || Math.min(...xs) > maxX || Math.max(...ys) < minY || Math.min(...ys) > maxY) continue;
 
-      const clipped = clipPolyToRect(p, 0, 0, roomL, roomW);
+      const clipped = clipMain(p);
       if (clipped.length >= 3) {
         const area = shoelaceArea(clipped);
         if (area >= 1e-6) {
@@ -470,10 +546,13 @@ function computeDiagonalPlankExact(roomL, roomW, Pl, Pw, alcoves = []) {
   return pieces;
 }
 
-function computeDiagonalHerringboneExact(roomL, roomW, Pl, Pw, alcoves = []) {
+function computeDiagonalHerringboneExact(roomL, roomW, Pl, Pw, alcoves = [], farL = roomL) {
   if (Pl < Pw - 1e-9) return null;
-  const alcoveRects = alcoveRectsFor(roomL, alcoves);
-  const { minX, maxX, minY, maxY } = effectiveBounds(roomL, roomW, alcoveRects);
+  const alcoveRects = alcoveRectsFor(roomL, alcoves, roomW, farL);
+  const { minX, maxX, minY, maxY } = effectiveBounds(roomL, roomW, alcoveRects, farL);
+  const roomPoly = roomBoundaryPoly(roomL, roomW, farL);
+  const isTrapezoid = Math.abs(farL - roomL) > 1e-9;
+  const clipMain = isTrapezoid ? (poly) => clipPolyToConvexPoly(poly, roomPoly) : (poly) => clipPolyToRect(poly, 0, 0, roomL, roomW);
   const span = (maxX - minX) + (maxY - minY);
   const kSpan = Math.ceil(span / Pw) + 4;
   const xSpanNeeded = span + 2 * kSpan * Pw + 2 * Pl;
@@ -514,7 +593,7 @@ function computeDiagonalHerringboneExact(roomL, roomW, Pl, Pw, alcoves = []) {
       if (Math.max(...xs) < minX || Math.min(...xs) > maxX || Math.max(...ys) < minY || Math.min(...ys) > maxY) continue;
 
       const dim = t.kind === "H" ? t.h : t.w;
-      const clipped = clipPolyToRect(roomRect, 0, 0, roomL, roomW);
+      const clipped = clipMain(roomRect);
       if (clipped.length >= 3) {
         const area = shoelaceArea(clipped);
         if (area >= 1e-6) {
@@ -663,7 +742,7 @@ function computeDoubleHerringboneExact(roomL, roomW, Pl, Pw, centered, alcoves =
   return pieces;
 }
 
-function computeHexagonExact(roomL, roomW, flatToFlat, alcoves = []) {
+function computeHexagonExact(roomL, roomW, flatToFlat, alcoves = [], farL = roomL) {
   if (flatToFlat <= 0) return null;
   const r = flatToFlat / Math.sqrt(3);
   const hexAt = (cx, cy) => {
@@ -674,8 +753,11 @@ function computeHexagonExact(roomL, roomW, flatToFlat, alcoves = []) {
     }
     return pts;
   };
-  const alcoveRects = alcoveRectsFor(roomL, alcoves);
-  const { minX, maxX, minY, maxY } = effectiveBounds(roomL, roomW, alcoveRects);
+  const alcoveRects = alcoveRectsFor(roomL, alcoves, roomW, farL);
+  const { minX, maxX, minY, maxY } = effectiveBounds(roomL, roomW, alcoveRects, farL);
+  const roomPoly = roomBoundaryPoly(roomL, roomW, farL);
+  const isTrapezoid = Math.abs(farL - roomL) > 1e-9;
+  const clipMain = isTrapezoid ? (poly) => clipPolyToConvexPoly(poly, roomPoly) : (poly) => clipPolyToRect(poly, 0, 0, roomL, roomW);
   const dx = flatToFlat, dyRow = r * 1.5;
   const diag = (maxX - minX) + (maxY - minY);
   const nCols = Math.ceil(diag / dx) + 4;
@@ -695,7 +777,7 @@ function computeHexagonExact(roomL, roomW, flatToFlat, alcoves = []) {
       const xs = hp.map((p) => p[0]), ys = hp.map((p) => p[1]);
       if (Math.max(...xs) < minX || Math.min(...xs) > maxX || Math.max(...ys) < minY || Math.min(...ys) > maxY) continue;
 
-      const clipped = clipPolyToRect(hp, 0, 0, roomL, roomW);
+      const clipped = clipMain(hp);
       if (clipped.length >= 3) {
         const area = shoelaceArea(clipped);
         if (area >= 1e-6) {
@@ -717,7 +799,7 @@ function computeHexagonExact(roomL, roomW, flatToFlat, alcoves = []) {
   return pieces;
 }
 
-function computeVersaillesExact(roomL, roomW, S, C) {
+function computeVersaillesExact(roomL, roomW, S, C, farL = roomL) {
   if (C <= 0 || C >= S) return null;
   const arm = (S - C) / 2;
   const panel = [
@@ -740,7 +822,11 @@ function computeVersaillesExact(roomL, roomW, S, C) {
     { kind: "corner", poly: [[0, arm + C], [arm, arm + C], [arm, S]] },
   ];
 
-  const nX = Math.ceil(roomL / S), nY = Math.ceil(roomW / S);
+  const roomPoly = roomBoundaryPoly(roomL, roomW, farL);
+  const isTrapezoid = Math.abs(farL - roomL) > 1e-9;
+  const clipMain = isTrapezoid ? (poly) => clipPolyToConvexPoly(poly, roomPoly) : (poly) => clipPolyToRect(poly, 0, 0, roomL, roomW);
+  const maxL = Math.max(roomL, farL);
+  const nX = Math.ceil(maxL / S), nY = Math.ceil(roomW / S);
   const estimatedWork = nX * nY * panel.length;
   if (!isFinite(estimatedWork) || estimatedWork > 400000) return null;
 
@@ -751,8 +837,8 @@ function computeVersaillesExact(roomL, roomW, S, C) {
       for (const { kind, poly } of panel) {
         const shifted = poly.map(([x, y]) => [x + ox, y + oy]);
         const xs = shifted.map((p) => p[0]), ys = shifted.map((p) => p[1]);
-        if (Math.max(...xs) < 0 || Math.min(...xs) > roomL || Math.max(...ys) < 0 || Math.min(...ys) > roomW) continue;
-        const clipped = clipPolyToRect(shifted, 0, 0, roomL, roomW);
+        if (Math.max(...xs) < 0 || Math.min(...xs) > maxL || Math.max(...ys) < 0 || Math.min(...ys) > roomW) continue;
+        const clipped = clipMain(shifted);
         if (clipped.length >= 3) {
           const area = shoelaceArea(clipped);
           if (area < 1e-6) continue;

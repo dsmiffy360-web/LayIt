@@ -2,11 +2,13 @@ import { useRef } from "react";
 import { COLORS } from "../../lib/colors";
 import { exportSvgAsPng } from "../../lib/exportUtils";
 
-export function HexagonDiagram({ result, L, W, unit, pieceLabel = "Tile", sectionLabel = "layout" }) {
+export function HexagonDiagram({ result, L, W, farL, unit, pieceLabel = "Tile", sectionLabel = "layout" }) {
   const svgRef = useRef(null);
   const padL = 44, padT = 24, padR = 14, padB = 14;
+  const effFarL = farL || L;
+  const isTrapezoid = Math.abs(effFarL - L) > 1e-9;
   const virtualW = 320;
-  const scale = virtualW / L;
+  const scale = virtualW / Math.max(L, effFarL);
   const drawW = L * scale;
   const drawH = W * scale;
   const pieces = result.hexagonPieces || [];
@@ -17,18 +19,19 @@ export function HexagonDiagram({ result, L, W, unit, pieceLabel = "Tile", sectio
   const nearDepth = Math.max(0, ...validAlcoves.filter((a) => a.wall === "near").map((a) => a.depth));
   const farDepth = Math.max(0, ...validAlcoves.filter((a) => a.wall !== "near").map((a) => a.depth));
   const extraL = nearDepth * scale, extraR = farDepth * scale;
-  const svgW = drawW + extraL + extraR + padL + padR;
-  const svgH = drawH + padT + padB + 24;
+  const svgW = Math.max(drawW, effFarL * scale) + extraL + extraR + padL + padR;
+  const svgH = drawH + padT + padB + 24 + (isTrapezoid ? 14 : 0);
   const px = (x) => padL + extraL + x * scale;
   const py = (y) => padT + y * scale;
+  const rightXAt = (yInRoom) => px(L + (effFarL - L) * (W > 0 ? yInRoom / W : 0));
 
   return (
     <section style={{ background: COLORS.blueprint, borderRadius: 10, padding: "14px 12px 18px", marginBottom: 12 }}>
       <div style={{ fontFamily: "JetBrains Mono", fontSize: 11, color: COLORS.chalk, letterSpacing: "0.06em", marginBottom: 6 }}>
-        LAYOUT — {L}{unit} × {W}{unit} · hexagon tile · {result.totalPlanks} {pieceLabel.toLowerCase()}s
+        LAYOUT — {L}{unit}{isTrapezoid ? ` – ${effFarL}${unit}` : ""} × {W}{unit} · hexagon tile · {result.totalPlanks} {pieceLabel.toLowerCase()}s
       </div>
       <svg ref={svgRef} viewBox={`0 0 ${svgW} ${svgH}`} width="100%" height="auto" style={{ display: "block" }} preserveAspectRatio="xMidYMid meet" role="img" aria-labelledby="hex-diagram-title">
-        <title id="hex-diagram-title">Hexagon tile layout for a {L}{unit} by {W}{unit} room, {result.totalPlanks} tiles</title>
+        <title id="hex-diagram-title">Hexagon tile layout for a {L}{unit} by {W}{unit} room{isTrapezoid ? ` (far wall ${effFarL}${unit})` : ""}, {result.totalPlanks} tiles</title>
         <line x1={px(0)} y1={14} x2={px(L)} y2={14} stroke={COLORS.chalkDim} strokeWidth="1" />
         <text x={px(L / 2)} y={10} fill={COLORS.chalk} fontSize="11" fontFamily="JetBrains Mono" textAnchor="middle">{L}{unit}</text>
         <text x={14} y={py(W / 2)} fill={COLORS.chalk} fontSize="11" fontFamily="JetBrains Mono" textAnchor="middle" transform={`rotate(-90 14 ${py(W / 2)})`}>{W}{unit}</text>
@@ -42,8 +45,20 @@ export function HexagonDiagram({ result, L, W, unit, pieceLabel = "Tile", sectio
             opacity={p.inAlcove ? 0.85 : 1}
           />
         ))}
-        <rect x={px(0)} y={py(0)} width={drawW} height={drawH} fill="none" stroke={COLORS.chalk} strokeWidth="1.5" />
-        <g transform={`translate(${px(0)}, ${py(0) + drawH + 14})`}>
+        {isTrapezoid ? (
+          <polygon
+            points={`${px(0)},${py(0)} ${px(L)},${py(0)} ${rightXAt(W)},${py(W)} ${px(0)},${py(W)}`}
+            fill="none" stroke={COLORS.chalk} strokeWidth="1.5"
+          />
+        ) : (
+          <rect x={px(0)} y={py(0)} width={drawW} height={drawH} fill="none" stroke={COLORS.chalk} strokeWidth="1.5" />
+        )}
+        {isTrapezoid && (
+          <text x={px(L / 2)} y={py(W) + 12} fill={COLORS.accentText} fontSize="10" fontFamily="JetBrains Mono" textAnchor="middle">
+            {effFarL}{unit} (far wall)
+          </text>
+        )}
+        <g transform={`translate(${px(0)}, ${py(0) + drawH + 14 + (isTrapezoid ? 14 : 0)})`}>
           {[[COLORS.wood1, "Full tile"], [COLORS.waste, "Cut at perimeter"]].map(([c, label], i) => (
             <g key={label} transform={`translate(${i * 130}, 0)`}>
               <rect width="10" height="10" fill={c} rx="2" />

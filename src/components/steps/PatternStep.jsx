@@ -1,6 +1,18 @@
 import { COLORS } from "../../lib/colors";
 import { computePatternPreview } from "../../lib/patternPreview";
 import { ROW_BASED_METHODS } from "../../lib/layoutEngine";
+
+// The exact-tiling patterns that already clip their pieces as true
+// polygons (chevron, diagonal plank/herringbone, hexagon, Versailles) —
+// swapping their room-boundary rect for a trapezoid was a small, low-risk
+// change, and each already has an honest "irregular piece — measure off
+// the diagram" fallback in its cut list for any cut that isn't a clean
+// straight trim. The remaining exact-tiling patterns (herringbone, basket
+// weave, pinwheel, double herringbone) tile with plain unrotated
+// rectangles and their cut lists promise "square cuts only" — supporting
+// an angled wall there means teaching them to produce and label genuinely
+// angled cuts, which is real, separate work (Phase 2b, not done yet).
+const TRAPEZOID_SUPPORTED_METHODS = [...ROW_BASED_METHODS, "chevron", "diagonalplank", "diagonalherringbone", "hexagon", "versailles"];
 import { PREVIEW_DIAGRAMS } from "../LivePreview";
 
 const PATTERNS = [
@@ -41,7 +53,7 @@ export function PatternStep({ job, updateJob }) {
   const pieceLabel = job.materialName.trim() || (materialType === "tile" ? "Tile" : "Plank");
   const usesStartPoint = (id) => id === "herringbone" || id === "chevron" || id === "doubleherringbone";
   const hasAngledSection = (job.sections || []).some((s) => !!s.farLength);
-  const patternIgnoresAngle = hasAngledSection && !ROW_BASED_METHODS.includes(layoutMethod);
+  const patternIgnoresAngle = hasAngledSection && !TRAPEZOID_SUPPORTED_METHODS.includes(layoutMethod);
 
   return (
     <section style={{ background: COLORS.panel, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 18, marginBottom: 14 }}>
@@ -50,7 +62,8 @@ export function PatternStep({ job, updateJob }) {
         <p style={{ fontSize: 12, color: COLORS.wasteText, background: "#FCEEEA", border: `1px solid ${COLORS.waste}`, borderRadius: 8, padding: "10px 12px", marginTop: 0, marginBottom: 12 }}>
           One of your sections has an angled far wall, but this pattern doesn't account for it yet — it'll be
           calculated as if the near-wall length ran the whole way, which will be wrong near that wall. Switch to
-          Staggered, Cascade, 1/3 brick, Random, or Straight for an accurate estimate on that section.
+          Staggered, Cascade, 1/3 brick, Random, Straight, Chevron, Diagonal plank, Diagonal herringbone, Hexagon,
+          or Versailles for an accurate estimate on that section.
         </p>
       )}
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>

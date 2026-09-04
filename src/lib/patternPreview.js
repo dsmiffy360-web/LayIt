@@ -50,9 +50,9 @@ export function computePatternPreview(job) {
   }
   if (layoutMethod === "chevron") {
     if (Pl <= Pw + 1e-9) return null;
-    const pieces = computeChevronExact(L, W, Pl, Pw, hbCentered, alcoves);
+    const pieces = computeChevronExact(L, W, Pl, Pw, hbCentered, alcoves, farL);
     if (!pieces) return null;
-    return { kind: "chevron", result: { chevronPieces: pieces, totalPlanks: pieces.length, hbCentered, alcoves, L, W } };
+    return { kind: "chevron", result: { chevronPieces: pieces, totalPlanks: pieces.length, hbCentered, alcoves, L, W, farL } };
   }
   if (layoutMethod === "basketweave") {
     const pieces = computeBasketWeaveExact(L, W, Pl, Pw);
@@ -61,9 +61,9 @@ export function computePatternPreview(job) {
   }
   if (layoutMethod === "diagonalplank" || layoutMethod === "diagonalherringbone") {
     if (layoutMethod === "diagonalherringbone" && Pl < Pw - 1e-9) return null;
-    const pieces = layoutMethod === "diagonalplank" ? computeDiagonalPlankExact(L, W, Pl, Pw, alcoves) : computeDiagonalHerringboneExact(L, W, Pl, Pw, alcoves);
+    const pieces = layoutMethod === "diagonalplank" ? computeDiagonalPlankExact(L, W, Pl, Pw, alcoves, farL) : computeDiagonalHerringboneExact(L, W, Pl, Pw, alcoves, farL);
     if (!pieces) return null;
-    return { kind: "diagonal", result: { diagonalPieces: pieces, diagonalKind: layoutMethod, totalPlanks: pieces.length, alcoves, L, W } };
+    return { kind: "diagonal", result: { diagonalPieces: pieces, diagonalKind: layoutMethod, totalPlanks: pieces.length, alcoves, L, W, farL } };
   }
   if (layoutMethod === "pinwheel") {
     if (Pl <= Pw + 1e-9) return null;
@@ -78,15 +78,15 @@ export function computePatternPreview(job) {
     return { kind: "doubleherringbone", result: { doubleHerringbonePieces: pieces, hbCentered, alcoves, L, W } };
   }
   if (layoutMethod === "hexagon") {
-    const pieces = computeHexagonExact(L, W, Pw, alcoves);
+    const pieces = computeHexagonExact(L, W, Pw, alcoves, farL);
     if (!pieces) return null;
-    return { kind: "hexagon", result: { hexagonPieces: pieces, totalPlanks: pieces.length, alcoves, L, W } };
+    return { kind: "hexagon", result: { hexagonPieces: pieces, totalPlanks: pieces.length, alcoves, L, W, farL } };
   }
   if (layoutMethod === "versailles") {
     if (Pw >= Pl - 1e-9) return null;
-    const pieces = computeVersaillesExact(L, W, Pl, Pw);
+    const pieces = computeVersaillesExact(L, W, Pl, Pw, farL);
     if (!pieces) return null;
-    return { kind: "versailles", result: { versaillesPieces: pieces, totalPlanks: pieces.length, L, W } };
+    return { kind: "versailles", result: { versaillesPieces: pieces, totalPlanks: pieces.length, L, W, farL } };
   }
   return null;
 }
