@@ -22,6 +22,7 @@ export function computePatternPreview(job) {
   if (!s) return null;
   const L = parseFloat(s.length), W = parseFloat(s.width);
   if (isNaN(L) || isNaN(W) || L <= 0 || W <= 0) return null;
+  const farL = parseFloat(s.farLength) || L;
 
   const { length: activeLength, width: activeWidth } = getActiveDimensions(job);
   const Pl = parseFloat(activeLength), Pw = parseFloat(activeWidth);
@@ -37,8 +38,8 @@ export function computePatternPreview(job) {
 
   if (ROW_BASED_METHODS.includes(layoutMethod)) {
     if (Pw > W) return null;
-    const result = computeSectionLayout({ L, W, Pl, Pw, minStagger: parseFloat(job.minStagger) || 20, method: layoutMethod, seed: s.id || 1, unit, gap, alcoves });
-    return { kind: "blueprint", result: { ...result, L, W } };
+    const result = computeSectionLayout({ L, W, Pl, Pw, minStagger: parseFloat(job.minStagger) || 20, method: layoutMethod, seed: s.id || 1, unit, gap, alcoves, farL });
+    return { kind: "blueprint", result: { ...result, L, W, farL } };
   }
 
   if (layoutMethod === "herringbone") {

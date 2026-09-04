@@ -111,6 +111,10 @@ export function ResultsStep({ job, updateJob, jobName }) {
     ...s,
     L: parseFloat(s.length),
     W: parseFloat(s.width),
+    // The far wall — unset (or invalid) means a plain rectangle, same as
+    // the near length. A genuine angled wall (a trapezoid room) sets this
+    // to something different from the near length.
+    farL: parseFloat(s.farLength) || parseFloat(s.length),
     obstacleArea: Math.max(0, parseFloat(s.obstacle) || 0),
     alcoves: (s.alcoves || []).map((a) => ({ id: a.id, offset: parseFloat(a.offset) || 0, span: parseFloat(a.span) || 0, depth: parseFloat(a.depth) || 0, wall: a.wall === "near" ? "near" : "far" })),
   }));
@@ -557,7 +561,7 @@ export function ResultsStep({ job, updateJob, jobName }) {
     ...s,
     ...computeSectionLayout({
       L: s.L, W: s.W, Pl: nums.Pl, Pw: nums.Pw, minStagger: nums.minStagger, method: layoutMethod,
-      seed: s.id, unit, gap: effectiveGap, alcoves: s.alcoves,
+      seed: s.id, unit, gap: effectiveGap, alcoves: s.alcoves, farL: s.farL,
     }),
   }));
 
@@ -665,7 +669,7 @@ export function ResultsStep({ job, updateJob, jobName }) {
           <div style={{ fontFamily: "Space Grotesk", fontWeight: 600, fontSize: 16, marginBottom: 8 }}>
             {sections.length > 1 ? `${i + 1}. ${sec.label}` : sec.label}
           </div>
-          <BlueprintDiagram result={sec} L={sec.L} W={sec.W} unit={unit} pieceLabel={pieceLabel} sectionLabel={`${jobName}-${sec.label}`} />
+          <BlueprintDiagram result={sec} L={sec.L} W={sec.W} farL={sec.farL} unit={unit} pieceLabel={pieceLabel} sectionLabel={`${jobName}-${sec.label}`} />
         </div>
       ))}
     </>

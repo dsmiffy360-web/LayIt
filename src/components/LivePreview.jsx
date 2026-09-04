@@ -43,7 +43,7 @@ export function LivePreview({ job }) {
   return (
     <section style={{ background: COLORS.panel, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 18, marginBottom: 14 }}>
       <div style={{ fontFamily: "Space Grotesk", fontWeight: 600, fontSize: 15, marginBottom: 10 }}>Live preview</div>
-      <PreviewDiagram result={preview.result} L={preview.result.L} W={preview.result.W} unit={job.unit} pieceLabel={pieceLabel} sectionLabel="live-preview" />
+      <PreviewDiagram result={preview.result} L={preview.result.L} W={preview.result.W} farL={preview.result.farL} unit={job.unit} pieceLabel={pieceLabel} sectionLabel="live-preview" />
     </section>
   );
 }

@@ -809,7 +809,7 @@ function computeCenteredGrid({ L, W, Pl, Pw, gap }) {
   return { rows, totalPlanks, roomArea, usedPlanksArea, hasRippedRow: hasBorderRow, remW: rowAxis.border };
 }
 
-function computeSectionLayout({ L, W, Pl, Pw, minStagger, method, seed, unit, gap = 0, centered = false, hbCentered = false, alcoves = [], widthCycle = null }) {
+function computeSectionLayout({ L, W, Pl, Pw, minStagger, method, seed, unit, gap = 0, centered = false, hbCentered = false, alcoves = [], widthCycle = null, farL = L }) {
   if (centered && method === "straight") {
     return computeCenteredGrid({ L, W, Pl, Pw, gap });
   }
@@ -1077,7 +1077,17 @@ function computeSectionLayout({ L, W, Pl, Pw, minStagger, method, seed, unit, ga
     const matchedAlcove = validAlcoves.find((a) => rowYStart < a.offset + a.span - 1e-6 && rowYStart + rowWidth > a.offset + 1e-6);
     const rowInAlcove = !!matchedAlcove;
     const rowPartial = rowInAlcove && !(rowYStart >= matchedAlcove.offset - 1e-6 && rowYStart + rowWidth <= matchedAlcove.offset + matchedAlcove.span + 1e-6);
-    const rowL = rowInAlcove ? L + matchedAlcove.depth : L;
+    // The far wall can be a different length than the near one (a trapezoid
+    // room, one angled wall) — a row's own base length is L linearly
+    // interpolated toward farL by how far across the room's width it sits.
+    // farL defaults to L, so this is exactly L for the ordinary rectangular
+    // case. Evaluated at the row's own center, since a physical row has
+    // some width and using its midpoint is the single best approximation of
+    // its true (very slightly non-rectangular) length — real-world on-site
+    // scribing already handles that residual, same as any perimeter cut.
+    const rowCenterY = rowYStart + rowWidth / 2;
+    const baseRowL = W > 0 ? L + (farL - L) * (rowCenterY / W) : L;
+    const rowL = rowInAlcove ? baseRowL + matchedAlcove.depth : baseRowL;
     if (rowInAlcove) alcoveArea += rowWidth * matchedAlcove.depth;
 
     let remaining = rowL;
@@ -1151,7 +1161,10 @@ function computeSectionLayout({ L, W, Pl, Pw, minStagger, method, seed, unit, ga
     rows.push({ rowWidth, nominalWidth, isRipped, rowInAlcove, rowPartial, alcoveWall: matchedAlcove ? matchedAlcove.wall : null, alcoveDepth: matchedAlcove ? matchedAlcove.depth : 0, pieces });
   }
 
-  const roomArea = L * W + alcoveArea;
+  // Trapezoid area formula — reduces to the plain L*W rectangle when
+  // farL === L (the default), so this is exact for both cases with no
+  // branching needed.
+  const roomArea = ((L + farL) / 2) * W + alcoveArea;
   const usedPlanksArea = rows.reduce((sum, row) => sum + row.pieces.filter((p) => p.kind !== "offcut-reuse").length * Pl * row.nominalWidth, 0);
   const partialRowCount = rows.filter((r) => r.rowPartial).length;
 

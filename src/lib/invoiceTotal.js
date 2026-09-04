@@ -24,6 +24,7 @@ function computeTotalPieces(job) {
   for (const s of sections) {
     const L = parseFloat(s.length), W = parseFloat(s.width);
     if (isNaN(L) || isNaN(W) || L <= 0 || W <= 0) continue;
+    const farL = parseFloat(s.farLength) || L;
     // Alcove fields come out of the job's raw string state — every layout
     // function does arithmetic directly on offset/span/depth (e.g.
     // `roomL + depth`), which silently string-concatenates instead of
@@ -37,7 +38,7 @@ function computeTotalPieces(job) {
 
     if (ROW_BASED_METHODS.includes(layoutMethod)) {
       if (Pw > W) continue;
-      const r = computeSectionLayout({ L, W, Pl, Pw, minStagger: parseFloat(job.minStagger) || 20, method: layoutMethod, seed: s.id, unit, gap, alcoves });
+      const r = computeSectionLayout({ L, W, Pl, Pw, minStagger: parseFloat(job.minStagger) || 20, method: layoutMethod, seed: s.id, unit, gap, alcoves, farL });
       total += r.totalPlanks;
       any = true;
       continue;

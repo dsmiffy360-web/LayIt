@@ -1,5 +1,6 @@
 import { COLORS } from "../../lib/colors";
 import { computePatternPreview } from "../../lib/patternPreview";
+import { ROW_BASED_METHODS } from "../../lib/layoutEngine";
 import { PREVIEW_DIAGRAMS } from "../LivePreview";
 
 const PATTERNS = [
@@ -39,10 +40,19 @@ export function PatternStep({ job, updateJob }) {
   const PreviewDiagram = preview && PREVIEW_DIAGRAMS[preview.kind];
   const pieceLabel = job.materialName.trim() || (materialType === "tile" ? "Tile" : "Plank");
   const usesStartPoint = (id) => id === "herringbone" || id === "chevron" || id === "doubleherringbone";
+  const hasAngledSection = (job.sections || []).some((s) => !!s.farLength);
+  const patternIgnoresAngle = hasAngledSection && !ROW_BASED_METHODS.includes(layoutMethod);
 
   return (
     <section style={{ background: COLORS.panel, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 18, marginBottom: 14 }}>
       <div style={{ fontFamily: "Space Grotesk", fontWeight: 600, fontSize: 15, marginBottom: 10 }}>Lay pattern</div>
+      {patternIgnoresAngle && (
+        <p style={{ fontSize: 12, color: COLORS.wasteText, background: "#FCEEEA", border: `1px solid ${COLORS.waste}`, borderRadius: 8, padding: "10px 12px", marginTop: 0, marginBottom: 12 }}>
+          One of your sections has an angled far wall, but this pattern doesn't account for it yet — it'll be
+          calculated as if the near-wall length ran the whole way, which will be wrong near that wall. Switch to
+          Staggered, Cascade, 1/3 brick, Random, or Straight for an accurate estimate on that section.
+        </p>
+      )}
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         {options.map((opt) => {
           const isSelected = layoutMethod === opt.id;
@@ -88,7 +98,7 @@ export function PatternStep({ job, updateJob }) {
                   <div style={{ fontFamily: "Inter", fontSize: 11, fontWeight: 600, color: COLORS.sub, textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 6 }}>
                     Preview {job.sections.length > 1 ? `— ${job.sections[0].label}` : ""}
                   </div>
-                  <PreviewDiagram result={preview.result} L={preview.result.L} W={preview.result.W} unit={job.unit} pieceLabel={pieceLabel} sectionLabel="pattern-preview" />
+                  <PreviewDiagram result={preview.result} L={preview.result.L} W={preview.result.W} farL={preview.result.farL} unit={job.unit} pieceLabel={pieceLabel} sectionLabel="pattern-preview" />
                 </div>
               )}
             </div>

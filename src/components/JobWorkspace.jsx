@@ -48,7 +48,7 @@ function InvoicePaywall({ user }) {
 export function defaultJobData() {
   return {
     unit: "cm",
-    sections: [{ id: 1, label: "Main area", length: "420", width: "330", obstacle: "0", alcoves: [] }],
+    sections: [{ id: 1, label: "Main area", length: "420", width: "330", farLength: "", obstacle: "0", alcoves: [] }],
     plankLength: "120",
     plankWidth: "19",
     tileLength: "60",

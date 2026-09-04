@@ -2,7 +2,7 @@ import { useRef } from "react";
 import { COLORS } from "../../lib/colors";
 import { exportSvgAsPng } from "../../lib/exportUtils";
 
-export function BlueprintDiagram({ result, L, W, unit, pieceLabel = "Plank", sectionLabel = "layout" }) {
+export function BlueprintDiagram({ result, L, W, farL, unit, pieceLabel = "Plank", sectionLabel = "layout" }) {
   const svgRef = useRef(null);
   const padL = 44, padT = 24, padR = 14, padB = 14;
   const allAlcoves = result.alcoves || [];
@@ -11,18 +11,25 @@ export function BlueprintDiagram({ result, L, W, unit, pieceLabel = "Plank", sec
   const hasAlcoves = allAlcoves.length > 0;
   const maxNearDepth = nearAlcoves.length ? Math.max(...nearAlcoves.map((a) => a.depth)) : 0;
   const maxFarDepth = farAlcoves.length ? Math.max(...farAlcoves.map((a) => a.depth)) : 0;
+  // An angled wall (farL different from L) means the right boundary isn't
+  // a fixed x — it slants from L at the near wall (row y=0) to farL at the
+  // far wall (row y=W). farL defaults to L, so rightXAt collapses to the
+  // ordinary constant-x case with no separate branch needed.
+  const effFarL = farL || L;
+  const isTrapezoid = Math.abs(effFarL - L) > 1e-9;
 
   const virtualW = 320;
-  const scale = virtualW / (L + maxNearDepth + maxFarDepth);
+  const scale = virtualW / (Math.max(L, effFarL) + maxNearDepth + maxFarDepth);
   const baseDrawW = L * scale;
   const leftProtrusion = maxNearDepth * scale;
   const rightProtrusion = maxFarDepth * scale;
   const baseLeft = padL + leftProtrusion;
   const baseRight = baseLeft + baseDrawW;
-  const drawW = leftProtrusion + baseDrawW + rightProtrusion;
+  const rightXAt = (yInRoom) => baseLeft + (W > 0 ? L + (effFarL - L) * (yInRoom / W) : L) * scale;
+  const drawW = leftProtrusion + Math.max(baseDrawW, effFarL * scale) + rightProtrusion;
   const drawH = W * scale;
   const svgW = drawW + padL + padR;
-  const svgH = drawH + padT + padB + (hasAlcoves ? 42 : 24);
+  const svgH = drawH + padT + padB + (hasAlcoves ? 42 : 24) + (isTrapezoid ? 14 : 0);
 
   let yCursor = padT;
 
@@ -30,13 +37,14 @@ export function BlueprintDiagram({ result, L, W, unit, pieceLabel = "Plank", sec
   if (hasAlcoves) {
     outlinePoints = [[baseLeft, padT], [baseRight, padT]];
     farAlcoves.forEach((a) => {
-      const protrudeX = baseRight + a.depth * scale;
-      outlinePoints.push([baseRight, padT + a.offset * scale]);
+      const edgeX = rightXAt(a.offset + a.span / 2);
+      const protrudeX = edgeX + a.depth * scale;
+      outlinePoints.push([edgeX, padT + a.offset * scale]);
       outlinePoints.push([protrudeX, padT + a.offset * scale]);
       outlinePoints.push([protrudeX, padT + (a.offset + a.span) * scale]);
-      outlinePoints.push([baseRight, padT + (a.offset + a.span) * scale]);
+      outlinePoints.push([edgeX, padT + (a.offset + a.span) * scale]);
     });
-    outlinePoints.push([baseRight, padT + drawH]);
+    outlinePoints.push([rightXAt(W), padT + drawH]);
     outlinePoints.push([baseLeft, padT + drawH]);
     [...nearAlcoves].reverse().forEach((a) => {
       const protrudeX = baseLeft - a.depth * scale;
@@ -50,13 +58,18 @@ export function BlueprintDiagram({ result, L, W, unit, pieceLabel = "Plank", sec
   return (
     <section style={{ background: COLORS.blueprint, borderRadius: 10, padding: "14px 12px 18px", marginBottom: 12 }}>
       <div style={{ fontFamily: "JetBrains Mono", fontSize: 11, color: COLORS.chalk, letterSpacing: "0.06em", marginBottom: 6 }}>
-        LAYOUT — {L}{unit} × {W}{unit}{hasAlcoves ? ` + ${allAlcoves.length} alcove${allAlcoves.length > 1 ? "s" : ""}` : ""} · {result.rows.length} row{result.rows.length > 1 ? "s" : ""}
+        LAYOUT — {L}{unit}{isTrapezoid ? ` – ${effFarL}${unit}` : ""} × {W}{unit}{hasAlcoves ? ` + ${allAlcoves.length} alcove${allAlcoves.length > 1 ? "s" : ""}` : ""} · {result.rows.length} row{result.rows.length > 1 ? "s" : ""}
       </div>
       <svg ref={svgRef} viewBox={`0 0 ${svgW} ${svgH}`} width="100%" height="auto" style={{ display: "block" }} preserveAspectRatio="xMidYMid meet" role="img" aria-labelledby="diagram-title">
-        <title id="diagram-title">Scaled diagram of a {L}{unit} by {W}{unit} room showing {result.rows.length} rows of {pieceLabel.toLowerCase()}s</title>
+        <title id="diagram-title">Scaled diagram of a {L}{unit} by {W}{unit} room{isTrapezoid ? ` (far wall ${effFarL}${unit})` : ""} showing {result.rows.length} rows of {pieceLabel.toLowerCase()}s</title>
         <line x1={baseLeft} y1={14} x2={baseRight} y2={14} stroke={COLORS.chalkDim} strokeWidth="1" />
         <text x={baseLeft + baseDrawW / 2} y={10} fill={COLORS.chalk} fontSize="11" fontFamily="JetBrains Mono" textAnchor="middle">{L}{unit}</text>
         <text x={10} y={padT + drawH / 2} fill={COLORS.chalk} fontSize="11" fontFamily="JetBrains Mono" textAnchor="middle" transform={`rotate(-90 10 ${padT + drawH / 2})`}>{W}{unit}</text>
+        {isTrapezoid && (
+          <text x={baseLeft + baseDrawW / 2} y={padT + drawH + (hasAlcoves ? 20 : 10)} fill={COLORS.accentText} fontSize="10" fontFamily="JetBrains Mono" textAnchor="middle">
+            {effFarL}{unit} (far wall)
+          </text>
+        )}
 
         {result.rows.map((row, ri) => {
           const rowH = row.rowWidth * scale;
@@ -94,11 +107,16 @@ export function BlueprintDiagram({ result, L, W, unit, pieceLabel = "Plank", sec
 
         {outlinePoints ? (
           <polygon points={outlinePoints.map((p) => p.join(",")).join(" ")} fill="none" stroke={COLORS.chalk} strokeWidth="1.5" />
+        ) : isTrapezoid ? (
+          <polygon
+            points={[[baseLeft, padT], [baseRight, padT], [rightXAt(W), padT + drawH], [baseLeft, padT + drawH]].map((p) => p.join(",")).join(" ")}
+            fill="none" stroke={COLORS.chalk} strokeWidth="1.5"
+          />
         ) : (
           <rect x={baseLeft} y={padT} width={baseDrawW} height={drawH} fill="none" stroke={COLORS.chalk} strokeWidth="1.5" />
         )}
 
-        <g transform={`translate(${baseLeft}, ${padT + drawH + (hasAlcoves ? 32 : 14)})`}>
+        <g transform={`translate(${baseLeft}, ${padT + drawH + (hasAlcoves ? 32 : 14) + (isTrapezoid ? 14 : 0)})`}>
           {[[COLORS.wood1, `Full ${pieceLabel.toLowerCase()}`], [COLORS.reuse, "Reused offcut"], [COLORS.waste, "Cut edge"]].map(([c, label], i) => (
             <g key={label} transform={`translate(${i * 150}, 0)`}>
               <rect width="10" height="10" fill={c} rx="2" />

@@ -12,9 +12,18 @@ let alcoveIdCounter = 1000;
 // room." Each section is its own independent rectangle in this app's data
 // model (no stored adjacency between sections), so this only ever draws
 // one rectangle at a time, never a combined L-shape.
-function RoomPreview({ length, width, alcoves, unit }) {
+function RoomPreview({ length, width, farLength, alcoves, unit }) {
   const L = parseFloat(length), W = parseFloat(width);
   if (isNaN(L) || isNaN(W) || L <= 0 || W <= 0) return null;
+  // An angled wall (a trapezoid room) sets a far length different from the
+  // near one — the right edge (near-corner to far-corner) slants instead of
+  // running straight down. Unset/invalid falls back to L, same rectangle
+  // as before.
+  const farL = parseFloat(farLength) || L;
+  const isTrapezoid = Math.abs(farL - L) > 1e-9;
+  // The right boundary's x-position at a given y, linearly interpolated
+  // between the near wall (x=L at y=0) and far wall (x=farL at y=W).
+  const rightXAt = (y) => (W > 0 ? L + (farL - L) * (y / W) : L);
 
   const validAlcoves = (alcoves || [])
     .map((a) => ({ offset: parseFloat(a.offset) || 0, span: parseFloat(a.span) || 0, depth: parseFloat(a.depth) || 0, wall: a.wall === "near" ? "near" : "far" }))
@@ -24,33 +33,43 @@ function RoomPreview({ length, width, alcoves, unit }) {
 
   const padX = 20, padY = 20;
   const virtualW = 240;
-  const scale = virtualW / L;
-  const drawW = L * scale, drawH = W * scale;
+  const scale = virtualW / Math.max(L, farL);
+  const drawH = W * scale;
   const extraL = nearDepth * scale, extraR = farDepth * scale;
-  const svgW = drawW + extraL + extraR + padX * 2;
-  const svgH = drawH + padY * 2;
+  const svgW = Math.max(L, farL) * scale + extraL + extraR + padX * 2;
+  const svgH = drawH + padY * 2 + (isTrapezoid ? 14 : 0);
   const px = (x) => padX + extraL + x * scale;
   const py = (y) => padY + y * scale;
 
   return (
     <div style={{ background: "#F0EEE7", border: `1px solid ${COLORS.border}`, borderRadius: 8, padding: "12px 10px" }}>
-      <svg viewBox={`0 0 ${svgW} ${svgH}`} width="100%" height="auto" style={{ display: "block", maxHeight: 140 }} preserveAspectRatio="xMidYMid meet" role="img" aria-label={`Room shape, ${length} by ${width} ${unit}`}>
-        <rect x={px(0)} y={py(0)} width={drawW} height={drawH} fill="#FBFAF7" stroke={COLORS.wood1} strokeWidth="1.5" />
-        {validAlcoves.map((a, i) => (
-          <rect
-            key={i}
-            x={px(a.wall === "near" ? -a.depth : L)}
-            y={py(a.offset)}
-            width={a.depth * scale}
-            height={a.span * scale}
-            fill="#FBFAF7"
-            stroke={COLORS.accent}
-            strokeWidth="1.5"
-            strokeDasharray="3,2"
-          />
-        ))}
+      <svg viewBox={`0 0 ${svgW} ${svgH}`} width="100%" height="auto" style={{ display: "block", maxHeight: 140 }} preserveAspectRatio="xMidYMid meet" role="img" aria-label={`Room shape, ${length} by ${width} ${unit}${isTrapezoid ? `, far wall ${farLength}${unit}` : ""}`}>
+        <polygon
+          points={[[px(0), py(0)], [px(L), py(0)], [px(farL), py(W)], [px(0), py(W)]].map((p) => p.join(",")).join(" ")}
+          fill="#FBFAF7" stroke={COLORS.wood1} strokeWidth="1.5"
+        />
+        {validAlcoves.map((a, i) => {
+          const alcoveCenterY = a.offset + a.span / 2;
+          const attachX = a.wall === "near" ? 0 : rightXAt(alcoveCenterY);
+          return (
+            <rect
+              key={i}
+              x={px(a.wall === "near" ? -a.depth : attachX)}
+              y={py(a.offset)}
+              width={a.depth * scale}
+              height={a.span * scale}
+              fill="#FBFAF7"
+              stroke={COLORS.accent}
+              strokeWidth="1.5"
+              strokeDasharray="3,2"
+            />
+          );
+        })}
         <text x={px(L / 2)} y={py(0) - 6} fill={COLORS.sub} fontSize="10" fontFamily="JetBrains Mono" textAnchor="middle">{length}{unit}</text>
         <text x={px(0) - 8} y={py(W / 2)} fill={COLORS.sub} fontSize="10" fontFamily="JetBrains Mono" textAnchor="middle" transform={`rotate(-90 ${px(0) - 8} ${py(W / 2)})`}>{width}{unit}</text>
+        {isTrapezoid && (
+          <text x={px(farL / 2)} y={py(W) + 14} fill={COLORS.accentText} fontSize="10" fontFamily="JetBrains Mono" textAnchor="middle">{farLength}{unit} (far wall)</text>
+        )}
       </svg>
     </div>
   );
@@ -80,7 +99,7 @@ export function SetupStep({ job, updateJob }) {
     };
     updateJob({
       unit: newUnit,
-      sections: sections.map((s) => ({ ...s, length: convert(s.length), width: convert(s.width) })),
+      sections: sections.map((s) => ({ ...s, length: convert(s.length), width: convert(s.width), farLength: convert(s.farLength) })),
       plankLength: convert(job.plankLength),
       plankWidth: convert(job.plankWidth),
       tileLength: convert(job.tileLength),
@@ -99,7 +118,7 @@ export function SetupStep({ job, updateJob }) {
   };
   const addSection = () => {
     sectionIdCounter += 1;
-    updateJob({ sections: [...sections, { id: sectionIdCounter, label: `Section ${sections.length + 1}`, length: "150", width: "150", obstacle: "0", alcoves: [] }] });
+    updateJob({ sections: [...sections, { id: sectionIdCounter, label: `Section ${sections.length + 1}`, length: "150", width: "150", farLength: "", obstacle: "0", alcoves: [] }] });
   };
   const removeSection = (id) => {
     if (sections.length > 1) updateJob({ sections: sections.filter((s) => s.id !== id) });
@@ -181,7 +200,28 @@ export function SetupStep({ job, updateJob }) {
                 <Field label={`Length (${unit})`} value={s.length} onChange={(v) => updateSection(s.id, { length: v })} />
                 <Field label={`Width (${unit})`} value={s.width} onChange={(v) => updateSection(s.id, { width: v })} />
               </div>
-              <RoomPreview length={s.length} width={s.width} alcoves={s.alcoves} unit={unit} />
+              <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
+                <input
+                  type="checkbox"
+                  checked={!!s.farLength}
+                  onChange={(e) => updateSection(s.id, { farLength: e.target.checked ? s.length : "" })}
+                  style={{ width: 16, height: 16, cursor: "pointer" }}
+                />
+                <span style={{ fontFamily: "Inter", fontSize: 12, color: COLORS.sub }}>
+                  This room has an angled wall (not a plain rectangle)
+                </span>
+              </label>
+              {!!s.farLength && (
+                <>
+                  <Field label={`Length at the far wall (${unit})`} value={s.farLength} onChange={(v) => updateSection(s.id, { farLength: v })} />
+                  <p style={{ fontSize: 11, color: COLORS.sub, margin: 0 }}>
+                    "Length" above is measured at the near wall (0{unit} end); this is the same measurement taken at the
+                    far wall. Currently supported for Staggered, Cascade, 1/3 brick, Random, and Straight — other
+                    patterns will use the near-wall length only and won't account for the angle.
+                  </p>
+                </>
+              )}
+              <RoomPreview length={s.length} width={s.width} farLength={s.farLength} alcoves={s.alcoves} unit={unit} />
               <Field label={`Fixed obstacle (${unit}², e.g. an island — 0 if none)`} value={s.obstacle} onChange={(v) => updateSection(s.id, { obstacle: v })} step="1" />
 
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
