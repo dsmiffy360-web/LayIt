@@ -4,6 +4,23 @@ import * as Sentry from "@sentry/react";
 import App from "./App";
 import "./index.css";
 
+// Supabase's auth-js prints a console.warn during Google sign-in whenever
+// the device clock is even a little behind the server's: "Session as
+// retrieved from URL was issued in the future? Check the device clock for
+// skew." It's purely informational — the library logs it and then finishes
+// signing the user in anyway (see @supabase/auth-js's GoTrueClient,
+// _getSessionFromURL) — but the wording reads like a broken or insecure
+// login to anyone who opens DevTools. Filtered here rather than switching
+// the app to Supabase's PKCE flow, which would trade this cosmetic warning
+// for a real regression: PKCE requires the browser that requested a magic
+// link to also be the one that opens it, breaking the "tap the email link
+// on your phone" flow contractors rely on (see src/lib/auth.js).
+const originalConsoleWarn = console.warn;
+console.warn = (...args) => {
+  if (typeof args[0] === "string" && args[0].includes("gotrue-js: Session as retrieved from URL was issued in the future")) return;
+  originalConsoleWarn(...args);
+};
+
 // No DSN in dev by default (see .env.example) — Sentry.init no-ops
 // without one, so local development never reports anywhere.
 if (import.meta.env.VITE_SENTRY_DSN) {
